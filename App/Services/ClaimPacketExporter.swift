@@ -86,9 +86,9 @@ enum ClaimPacketExporter {
         return url
     }
 
-    static let pageSize = CGSize(width: 612, height: 792) // US Letter
+    nonisolated static let pageSize = CGSize(width: 612, height: 792) // US Letter
 
-    private static func summaryPage(for receipts: [Receipt], total: Decimal, options: Options) -> Data {
+    nonisolated private static func summaryPage(for receipts: [Receipt], total: Decimal, options: Options) -> Data {
         let renderer = UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: pageSize))
         let margin: CGFloat = 48
         let width = pageSize.width - margin * 2
@@ -173,7 +173,7 @@ enum ClaimPacketExporter {
         }
     }
 
-    private static func imagePage(_ image: UIImage, label: String) -> Data {
+    nonisolated private static func imagePage(_ image: UIImage, label: String) -> Data {
         let renderer = UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: pageSize))
         return renderer.pdfData { context in
             context.beginPage()
