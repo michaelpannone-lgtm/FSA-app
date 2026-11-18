@@ -119,3 +119,43 @@ final class PlannerTests: XCTestCase {
         XCTAssertEqual(plan.totalCents, 500)
     }
 }
+
+final class SplitTests: XCTestCase {
+    func receipt() -> Receipt {
+        Receipt(merchant: "Target", total: Decimal(string: "33.00"), subtotal: 30, tax: 3, items: [
+            LineItem(text: "Claritin", amount: 20, eligibility: .likely, patient: "Emma"),
+            LineItem(text: "Advil", amount: 5, eligibility: .likely),
+            LineItem(text: "Paper towels", amount: 5, eligibility: .notEligible)
+        ], eligibility: .likely, patient: "Michael")
+    }
+
+    func testSplitTotalsProrateTax() {
+        let t = receipt().splitTotals
+        XCTAssertEqual(t.eligible, Decimal(string: "27.5"))   // 25 + 25/30 * 3
+        XCTAssertEqual(t.notEligible, Decimal(string: "5.5"))
+        XCTAssertEqual(t.total, 33)
+        XCTAssertTrue(receipt().isSplit)
+    }
+
+    func testEligibleByPatient() {
+        let shares = receipt().eligibleByPatient
+        XCTAssertEqual(shares.map(\.patient), ["Emma", "Michael"])
+        XCTAssertEqual(shares[0].amount, 22)                  // 20 + 2 tax
+        XCTAssertEqual(shares[1].amount, Decimal(string: "5.5"))
+    }
+
+    func testQuickSplit() {
+        var r = Receipt(merchant: "Costco", total: Decimal(string: "107.00"), tax: 7, eligibility: .unknown)
+        r.quickSplit(eligibleAmount: 40)
+        XCTAssertEqual(r.items.count, 2)
+        XCTAssertEqual(r.items[1].amount, 60)
+        XCTAssertEqual(r.eligibleAmount, Decimal(string: "42.8")) // 40 + 40/100 * 7
+    }
+
+    func testBulkSetEligibility() {
+        var r = receipt()
+        r.items.append(LineItem(text: "Mystery", amount: 1, eligibility: .unknown))
+        r.setEligibility(of: .unknown, to: .notEligible)
+        XCTAssertFalse(r.items.contains { $0.eligibility == .unknown })
+    }
+}

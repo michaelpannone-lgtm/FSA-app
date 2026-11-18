@@ -162,6 +162,31 @@ enum ClaimPacketExporter {
                     x += column.1
                 }
                 y += 16
+                // Split receipts: list exactly which items are being claimed.
+                if receipt.isSplit {
+                    let indent = margin + 102
+                    let itemWidth = width - 102 - 72
+                    for item in receipt.eligibleItems.prefix(12) {
+                        if y > pageSize.height - margin - 40 { newPage(first: false) }
+                        let who = item.patient.isEmpty ? "" : "  (\(item.patient))"
+                        draw("• \(item.text)\(who)", font: small, at: CGPoint(x: indent, y: y), width: itemWidth, color: .darkGray)
+                        draw("$\(item.amount.plainString)", font: small, at: CGPoint(x: margin + width - 72, y: y),
+                             width: 72, align: .right, color: .darkGray)
+                        y += 12
+                    }
+                    if receipt.eligibleItems.count > 12 {
+                        draw("• …and \(receipt.eligibleItems.count - 12) more eligible items", font: small,
+                             at: CGPoint(x: indent, y: y), width: itemWidth, color: .darkGray)
+                        y += 12
+                    }
+                    let notClaimed = receipt.splitTotals.total - receipt.eligibleAmount
+                    if notClaimed > 0 {
+                        draw("Not claimed (ineligible items incl. their tax): $\(notClaimed.plainString)", font: small,
+                             at: CGPoint(x: indent, y: y), width: width - 102, color: .darkGray)
+                        y += 12
+                    }
+                    y += 4
+                }
             }
             context.cgContext.stroke(CGRect(x: margin, y: y, width: width, height: 0.5))
             y += 6

@@ -17,6 +17,8 @@ struct ReceiptEditorView: View {
     @State private var confirmDelete = false
     @State private var showExport = false
     @State private var isSaving = false
+    @State private var showQuickSplit = false
+    @State private var quickSplitAmount: Decimal?
 
     init(receipt: Receipt, pendingAttachments: [PendingAttachment] = [], isNew: Bool) {
         _receipt = State(initialValue: receipt)
@@ -34,6 +36,7 @@ struct ReceiptEditorView: View {
             verdictSection
             attachmentsSection
             detailsSection
+            splitSection
             itemsSection
             amountSection
             reimbursementSection
@@ -164,10 +167,75 @@ struct ReceiptEditorView: View {
         }
     }
 
+    // MARK: Split receipt
+
+    @ViewBuilder
+    private var splitSection: some View {
+        let totals = receipt.splitTotals
+        Section {
+            if totals.total > 0 {
+                SplitBar(totals: totals)
+                ForEach(Eligibility.allCases, id: \.self) { e in
+                    let amount = totals.amount(for: e)
+                    if amount > 0 {
+                        LabeledContent {
+                            Text(amount.currency).monospacedDigit()
+                        } label: {
+                            Label(e.shortLabel, systemImage: e.symbol).foregroundStyle(e.color)
+                        }
+                        .font(.subheadline)
+                    }
+                }
+                let shares = receipt.eligibleByPatient
+                if shares.count > 1 || shares.contains(where: { !$0.patient.isEmpty }) {
+                    ForEach(shares, id: \.patient) { share in
+                        LabeledContent("Eligible for \(share.patient.isEmpty ? "—" : share.patient)",
+                                       value: share.amount.currency)
+                            .font(.footnote)
+                    }
+                }
+            }
+            Button {
+                quickSplitAmount = nil
+                showQuickSplit = true
+            } label: {
+                Label(receipt.items.isEmpty ? "Quick split…" : "Replace items with a quick split…",
+                      systemImage: "square.split.2x1")
+            }
+            if receipt.items.contains(where: { $0.eligibility == .unknown || $0.eligibility == .maybe }) {
+                Menu {
+                    Button("Review items → Eligible") { receipt.setEligibility(of: .unknown, to: .likely) }
+                    Button("Review items → Not eligible") { receipt.setEligibility(of: .unknown, to: .notEligible) }
+                    Button("Maybe items → Eligible (have LMN)") { receipt.setEligibility(of: .maybe, to: .likely) }
+                    Button("Maybe items → Not eligible") { receipt.setEligibility(of: .maybe, to: .notEligible) }
+                } label: {
+                    Label("Mark several items at once", systemImage: "checklist")
+                }
+            }
+        } header: {
+            Text("Split")
+        } footer: {
+            Text("Mixed receipts (e.g. medicine + groceries) only count the eligible part. Sales tax is shared out proportionally. Quick split is for receipts where the items couldn't be read: just type the eligible amount before tax.")
+        }
+        .alert("Quick split", isPresented: $showQuickSplit) {
+            TextField("Eligible amount before tax", value: $quickSplitAmount, format: .number.precision(.fractionLength(2)))
+                .keyboardType(.decimalPad)
+            Button("Split") {
+                if let amount = quickSplitAmount, amount > 0 {
+                    receipt.quickSplit(eligibleAmount: amount)
+                    manualAmount = false
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Receipt total \(receipt.total?.currency ?? "—"). The rest becomes “Not eligible”.")
+        }
+    }
+
     private var itemsSection: some View {
         Section {
             ForEach($receipt.items) { $item in
-                LineItemRow(item: $item)
+                LineItemRow(item: $item, familyMembers: familyMembers, receiptPatient: receipt.patient)
             }
             .onDelete { receipt.items.remove(atOffsets: $0) }
             Button {
@@ -236,6 +304,8 @@ struct ReceiptEditorView: View {
 
 struct LineItemRow: View {
     @Binding var item: LineItem
+    var familyMembers: [String] = []
+    var receiptPatient: String = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -261,7 +331,45 @@ struct LineItemRow: View {
                 if let reason = item.reason {
                     Text(reason).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
+                Spacer(minLength: 0)
+                if !familyMembers.isEmpty {
+                    Menu {
+                        Button("Same as receipt\(receiptPatient.isEmpty ? "" : " (\(receiptPatient))")") { item.patient = "" }
+                        ForEach(familyMembers, id: \.self) { name in
+                            Button(name) { item.patient = name }
+                        }
+                    } label: {
+                        Label(item.patient.isEmpty ? (receiptPatient.isEmpty ? "For…" : receiptPatient) : item.patient,
+                              systemImage: "person")
+                            .font(.caption2)
+                            .foregroundStyle(item.patient.isEmpty ? .secondary : .primary)
+                    }
+                }
             }
         }
+    }
+}
+
+/// Horizontal stacked bar of a receipt's split. Each segment also appears as a labeled row below it,
+/// so the split never relies on color alone.
+struct SplitBar: View {
+    let totals: SplitTotals
+
+    var body: some View {
+        GeometryReader { geo in
+            HStack(spacing: 2) {
+                ForEach(Eligibility.allCases, id: \.self) { e in
+                    let amount = totals.amount(for: e)
+                    if amount > 0, totals.total > 0 {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(e == .notEligible ? Color.gray.opacity(0.45) : e.color)
+                            .frame(width: max(4, (geo.size.width - 6) * CGFloat((amount / totals.total).doubleValue)))
+                    }
+                }
+            }
+        }
+        .frame(height: 12)
+        .accessibilityElement()
+        .accessibilityLabel("Eligible \(totals.eligible.currency) of \(totals.total.currency)")
     }
 }

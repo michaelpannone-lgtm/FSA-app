@@ -28,18 +28,21 @@ public struct LineItem: Codable, Identifiable, Hashable, Sendable {
     public var reason: String?
     /// True once the user changed eligibility by hand; re-classification leaves it alone.
     public var userOverride: Bool
+    /// Family member this item was for. Empty means "same as the receipt".
+    public var patient: String
 
     public init(id: UUID = UUID(), text: String, amount: Decimal, eligibility: Eligibility = .unknown,
-                reason: String? = nil, userOverride: Bool = false) {
+                reason: String? = nil, userOverride: Bool = false, patient: String = "") {
         self.id = id
         self.text = text
         self.amount = amount
         self.eligibility = eligibility
         self.reason = reason
         self.userOverride = userOverride
+        self.patient = patient
     }
 
-    enum CodingKeys: String, CodingKey { case id, text, amount, eligibility, reason, userOverride }
+    enum CodingKeys: String, CodingKey { case id, text, amount, eligibility, reason, userOverride, patient }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -49,6 +52,7 @@ public struct LineItem: Codable, Identifiable, Hashable, Sendable {
         eligibility = try c.decodeIfPresent(Eligibility.self, forKey: .eligibility) ?? .unknown
         reason = try c.decodeIfPresent(String.self, forKey: .reason)
         userOverride = try c.decodeIfPresent(Bool.self, forKey: .userOverride) ?? false
+        patient = try c.decodeIfPresent(String.self, forKey: .patient) ?? ""
     }
 }
 

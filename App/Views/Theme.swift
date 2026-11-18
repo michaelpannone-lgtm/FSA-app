@@ -72,7 +72,14 @@ struct ReceiptRow: View {
                 }
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-                EligibilityBadge(eligibility: receipt.eligibility)
+                HStack(spacing: 8) {
+                    EligibilityBadge(eligibility: receipt.eligibility)
+                    if receipt.isSplit {
+                        Label("Split", systemImage: "square.split.2x1")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {

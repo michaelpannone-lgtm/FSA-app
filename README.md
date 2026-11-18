@@ -22,6 +22,12 @@ Every line item is tagged *Eligible*, *Maybe (needs a Letter of Medical Necessit
 Doctor/dentist/vision bills count in full; pharmacy receipts that print an “FSA/HSA eligible total” use that number;
 otherwise the eligible items are summed and sales tax is prorated. You can override any item or the amount.
 
+**Split receipts** (e.g. medicine + groceries on one Target run): each receipt shows a split bar with the
+eligible / maybe / not-eligible / needs-review dollars (tax shared out proportionally). Items can be assigned to
+different family members, *Quick split* handles receipts whose items couldn't be read (type the eligible amount,
+the rest is marked not eligible), and bulk actions re-tag all “Review” or “Maybe” items at once. Exports list
+exactly which items on a split receipt are being claimed.
+
 **Export for upload:** one combined PDF (summary page listing date, provider, patient, amount + total, followed by every
 receipt image) or one PDF per receipt. Share sheet → Save to Files / upload on your HSA provider’s site or app.
 Afterwards tap **Mark these as reimbursed** so your balance stays accurate. A copy of every export is kept in `Exports/`.

@@ -3,7 +3,7 @@ import Foundation
 /// Builds the "HSA Ledger.csv" spreadsheet kept next to the receipts in iCloud Drive.
 public enum LedgerExporter {
     public static let header = ["Date", "Merchant", "For", "Total", "HSA Eligible Amount", "Eligibility",
-                                "Reimbursed", "Reimbursed On", "Added By", "Notes", "Files"]
+                                "Reimbursed", "Reimbursed On", "Added By", "Notes", "Files", "Eligible Items"]
 
     public static func csv(for receipts: [Receipt]) -> String {
         let dateFormatter = DateFormatter()
@@ -23,7 +23,8 @@ public enum LedgerExporter {
                 r.reimbursedOn.map { dateFormatter.string(from: $0) } ?? "",
                 r.addedBy,
                 r.notes,
-                r.attachments.joined(separator: "; ")
+                r.attachments.joined(separator: "; "),
+                r.isSplit ? r.eligibleItems.map { "\($0.text) \($0.amount.plainString)" }.joined(separator: "; ") : ""
             ]
             rows.append(fields.map(escape).joined(separator: ","))
         }
