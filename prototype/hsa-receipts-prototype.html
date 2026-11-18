@@ -1,0 +1,986 @@
+<title>HSA Receipts Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: an iPhone-sized app frame centered on a quiet desk surface; full-bleed app at phone width. */
+:root {
+  --desk: #e7ecea;
+  --bg: #f2f4f3;          /* grouped background */
+  --card: #ffffff;        /* secondary grouped background */
+  --fill: #e8ecea;        /* tertiary fill */
+  --fg: #111917;
+  --muted: #5f6b68;
+  --hair: #d5dcda;
+  --accent: #0f8a82;
+  --accent-ink: #ffffff;
+  --accent-soft: #d6efec;
+  --good: #1f8a3a;
+  --maybe: #b86200;
+  --review: #9a7400;
+  --bad: #6b7472;
+  --danger: #c4302b;
+  --paper: #fbfaf6;
+  --paper-ink: #2b2b28;
+  --bar-reimb: #a9b3b1;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, sans-serif;
+  --round: ui-rounded, "SF Pro Rounded", -apple-system, "Inter", "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --desk: #0d1211; --bg: #000000; --card: #1c1f1e; --fill: #2a2f2d; --fg: #eef3f1; --muted: #9aa6a3; --hair: #333a38;
+  --accent: #33c7b8; --accent-ink: #00201d; --accent-soft: #10302d; --good: #4cd46d; --maybe: #ffab40; --review: #e5c341;
+  --bad: #95a09d; --danger: #ff6961; --paper: #f4f2ea; --paper-ink: #2b2b28; --bar-reimb: #5b6563; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --desk: #0d1211; --bg: #000000; --card: #1c1f1e; --fill: #2a2f2d; --fg: #eef3f1; --muted: #9aa6a3; --hair: #333a38;
+  --accent: #33c7b8; --accent-ink: #00201d; --accent-soft: #10302d; --good: #4cd46d; --maybe: #ffab40; --review: #e5c341;
+  --bad: #95a09d; --danger: #ff6961; --paper: #f4f2ea; --paper-ink: #2b2b28; --bar-reimb: #5b6563; color-scheme: dark }
+
+html, body { height: 100%; }
+body { background: var(--desk); color: var(--fg); font-family: var(--font); font-size: 15px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+* { box-sizing: border-box; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+
+.stage { min-height: 100%; display: flex; gap: 40px; align-items: center; justify-content: center; padding-block: 28px; flex-wrap: wrap; }
+.notes { max-width: 300px; display: grid; gap: 12px; color: var(--muted); line-height: 1.5; }
+.notes h1 { font-size: 22px; color: var(--fg); margin: 0; text-wrap: balance; }
+.notes p { margin: 0; }
+.notes ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.notes .tag { display: inline-block; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+.notes button.reset { justify-self: start; border: 1px solid var(--hair); background: var(--card); border-radius: 10px; padding: 8px 12px; color: var(--fg); }
+
+.phone { width: 392px; height: 820px; max-width: 100%; border-radius: 54px; background: var(--bg); position: relative; overflow: hidden;
+  box-shadow: 0 0 0 11px #1b1f1e, 0 0 0 12px #3a403e, 0 30px 60px rgba(0,0,0,.25); display: flex; flex-direction: column; }
+.status { height: 50px; flex: none; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 30px 6px; font-weight: 600; font-size: 15px; }
+.status .island { position: absolute; left: 50%; top: 11px; transform: translateX(-50%); width: 120px; height: 34px; border-radius: 20px; background: #000; }
+.status .icons { display: flex; gap: 6px; align-items: center; }
+
+.view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 0 16px 24px; scrollbar-width: none; }
+.scroll::-webkit-scrollbar { display: none; }
+.navbar { display: flex; align-items: center; justify-content: space-between; padding: 6px 16px 0; min-height: 34px; flex: none; }
+.bigtitle { font-size: 32px; font-weight: 700; letter-spacing: -.02em; margin: 2px 0 10px; }
+.iconbtn { border: 0; background: none; color: var(--accent); font-size: 16px; padding: 6px; display: inline-flex; align-items: center; gap: 4px; }
+.iconbtn svg { width: 26px; height: 26px; }
+
+.tabbar { flex: none; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--hair); background: var(--card); padding: 6px 4px 22px; }
+.tab { border: 0; background: none; display: grid; justify-items: center; gap: 2px; font-size: 10.5px; color: var(--muted); padding: 2px 0; }
+.tab svg { width: 25px; height: 25px; }
+.tab[aria-selected="true"] { color: var(--accent); }
+
+.card { background: var(--card); border-radius: 14px; padding: 14px 16px; }
+.stack { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+.stack > * { min-width: 0; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.hero { background: linear-gradient(160deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #0b3d5c)); color: var(--accent-ink); border-radius: 18px; padding: 16px 18px; border: 0; text-align: left; width: 100%; display: grid; gap: 4px; }
+.hero .label { opacity: .85; font-size: 14px; }
+.hero .value { font: 700 40px/1.1 var(--round); font-variant-numeric: tabular-nums; }
+.hero .cap { opacity: .85; font-size: 12.5px; }
+.tile .label { color: var(--muted); font-size: 13.5px; }
+.tile .value { font: 600 22px/1.2 var(--font); font-variant-numeric: tabular-nums; margin-top: 4px; }
+.tile .cap { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.h { font-weight: 600; font-size: 17px; margin: 0 0 8px; }
+.section-h { font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 4px 6px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.section-f { font-size: 12.5px; color: var(--muted); margin: 6px 4px 0; line-height: 1.4; }
+
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart text { fill: var(--muted); font-size: 10px; font-family: var(--font); }
+.tip { position: absolute; pointer-events: none; background: var(--fg); color: var(--bg); font-size: 12px; padding: 6px 8px; border-radius: 8px; white-space: nowrap; transform: translate(-50%, -110%); }
+
+table.years { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+table.years th { font-size: 11.5px; color: var(--muted); font-weight: 600; text-align: right; padding: 0 0 6px; }
+table.years th:first-child, table.years td:first-child { text-align: left; }
+table.years td { text-align: right; padding: 8px 0; border-top: 1px solid var(--hair); }
+table.years td.dim { color: var(--muted); }
+table.years td.strong { font-weight: 600; }
+
+.list { background: var(--card); border-radius: 14px; overflow: hidden; }
+.rrow { display: flex; gap: 10px; align-items: flex-start; padding: 11px 14px; border: 0; background: none; width: 100%; text-align: left; border-top: 1px solid var(--hair); }
+.list > .rrow:first-child, .list > :first-child .rrow { border-top: 0; }
+.rrow:hover { background: color-mix(in srgb, var(--fill) 50%, transparent); }
+.rrow .main { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.rrow .m { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rrow .sub { color: var(--muted); font-size: 13.5px; }
+.rrow .amt { text-align: right; display: grid; gap: 3px; justify-items: end; }
+.rrow .amt b { font-variant-numeric: tabular-nums; font-weight: 600; }
+.rrow .amt small { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.chev { color: var(--hair); align-self: center; }
+
+.badges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.badge { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; font-weight: 600; }
+.badge svg { width: 13px; height: 13px; }
+.e-likely { color: var(--good); } .e-maybe { color: var(--maybe); } .e-notEligible { color: var(--bad); } .e-unknown { color: var(--review); }
+.pill { font-size: 11px; color: var(--muted); display: inline-flex; gap: 3px; align-items: center; }
+
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--fill); border-radius: 9px; padding: 2px; gap: 2px; }
+.seg button { border: 0; background: none; border-radius: 7px; padding: 6px 4px; font-size: 13px; font-weight: 500; }
+.seg button[aria-pressed="true"] { background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.search { display: flex; gap: 6px; align-items: center; background: var(--fill); border-radius: 10px; padding: 7px 10px; color: var(--muted); }
+.search input { border: 0; background: none; outline: none; flex: 1; min-width: 0; color: var(--fg); }
+
+.form { background: var(--card); border-radius: 12px; overflow: hidden; }
+.f { display: flex; align-items: center; gap: 10px; padding: 10px 14px; min-height: 44px; border-top: 1px solid var(--hair); }
+.form > .f:first-child { border-top: 0; }
+.f label, .f .k { flex: none; }
+.f .v { margin-left: auto; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.f input[type=text], .f input[type=number], .f input[type=date], .f select { width: 0; border: 0; background: none; text-align: right; margin-left: auto; min-width: 0; flex: 1; color: var(--fg); outline: none; }
+.f input.left { text-align: left; margin-left: 0; }
+.f select { appearance: none; color: var(--accent); }
+.f .btn-link { border: 0; background: none; color: var(--accent); padding: 0; text-align: left; }
+.f .btn-link.danger { color: var(--danger); }
+.toggle { margin-left: auto; position: relative; width: 51px; height: 31px; flex: none; }
+.toggle input { opacity: 0; width: 100%; height: 100%; position: absolute; margin: 0; cursor: pointer; }
+.toggle span { position: absolute; inset: 0; border-radius: 16px; background: var(--fill); transition: background .2s; pointer-events: none; }
+.toggle span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.2); transition: transform .2s; }
+.toggle input:checked + span { background: var(--good); }
+.toggle input:checked + span::after { transform: translateX(20px); }
+
+.item { padding: 10px 14px; border-top: 1px solid var(--hair); display: grid; gap: 6px; }
+.form > .item:first-child { border-top: 0; }
+.item .top { display: flex; gap: 8px; }
+.item .top input { border: 0; background: none; outline: none; flex: 1; min-width: 0; }
+.item .top input.money { flex: none; width: 80px; text-align: right; font-variant-numeric: tabular-nums; }
+.item .bot { display: flex; gap: 6px 8px; align-items: center; font-size: 12px; flex-wrap: wrap; }
+.item .bot select { border: 0; background: var(--fill); border-radius: 6px; padding: 2px 6px; font-size: 12px; font-weight: 600; }
+.item .bot .why { color: var(--muted); font-size: 11.5px; flex: 1 1 120px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item .del { border: 0; background: none; color: var(--danger); font-size: 12px; }
+
+.splitbar { display: flex; gap: 2px; height: 12px; }
+.splitbar i { border-radius: 4px; min-width: 4px; }
+
+.sheet-wrap { position: absolute; inset: 0; background: rgba(0,0,0,.3); display: flex; align-items: flex-end; z-index: 20; animation: fade .2s; }
+.sheet { background: var(--bg); width: 100%; height: calc(100% - 44px); border-radius: 14px 14px 0 0; display: flex; flex-direction: column; animation: up .28s cubic-bezier(.2,.8,.2,1); }
+.sheet .bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 12px 14px 8px; flex: none; }
+.sheet .bar .t { font-weight: 600; font-size: 16px; text-align: center; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sheet .bar button { border: 0; background: none; color: var(--accent); font-size: 16px; }
+.sheet .bar .r { justify-self: end; font-weight: 600; }
+.sheet .bar .l { justify-self: start; }
+@keyframes up { from { transform: translateY(100%); } }
+@keyframes fade { from { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .sheet, .sheet-wrap { animation: none; } }
+
+.verdict .amount { font: 700 34px/1.15 var(--round); font-variant-numeric: tabular-nums; margin-top: 6px; }
+.verdict .of { color: var(--muted); font-size: 14px; }
+.verdict .why { color: var(--muted); font-size: 13px; margin-top: 6px; line-height: 1.4; }
+.thumbs { display: flex; gap: 10px; overflow-x: auto; padding: 2px 0; }
+.thumb { flex: none; width: 92px; height: 122px; border-radius: 10px; overflow: hidden; border: 1px solid var(--hair); background: var(--paper); padding: 0; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.mini-paper { font: 5.2px/1.35 var(--mono); color: var(--paper-ink); padding: 6px; white-space: pre; overflow: hidden; height: 100%; text-align: left; }
+
+.paper { background: var(--paper); color: var(--paper-ink); font: 12px/1.5 var(--mono); padding: 18px 16px 26px; white-space: pre-wrap; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,.15);
+  -webkit-mask: linear-gradient(#000 0 0) top/100% calc(100% - 10px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom/16px 10px repeat-x;
+  mask: linear-gradient(#000 0 0) top/100% calc(100% - 10px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom/16px 10px repeat-x; }
+
+.primary { border: 0; background: var(--accent); color: var(--accent-ink); border-radius: 12px; padding: 13px 16px; font-weight: 600; width: 100%; display: inline-flex; justify-content: center; gap: 8px; align-items: center; }
+.primary[disabled] { opacity: .45; cursor: default; }
+.secondary { border: 0; background: var(--accent-soft); color: var(--accent); border-radius: 12px; padding: 11px 14px; font-weight: 600; }
+.footer-bar { flex: none; padding: 10px 16px 14px; background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: blur(10px); border-top: 1px solid var(--hair); }
+
+.check { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--hair); flex: none; align-self: center; display: grid; place-items: center; }
+.check.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.check svg { width: 14px; height: 14px; }
+
+.result { display: grid; gap: 4px; }
+.result .hd { display: flex; gap: 6px; align-items: center; font-weight: 600; }
+.muted { color: var(--muted); }
+.small { font-size: 12.5px; }
+.empty { text-align: center; color: var(--muted); padding: 30px 10px; display: grid; gap: 6px; justify-items: center; }
+.empty svg { width: 44px; height: 44px; color: var(--hair); }
+
+.option { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border: 0; background: none; width: 100%; text-align: left; border-top: 1px solid var(--hair); }
+.form > .option:first-child { border-top: 0; }
+.option .ic { width: 34px; height: 34px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; flex: none; }
+.option .ic svg { width: 20px; height: 20px; }
+.option .t { display: grid; gap: 2px; }
+.option .t small { color: var(--muted); font-size: 12.5px; }
+textarea.paste { width: 100%; min-height: 190px; border: 0; border-radius: 12px; background: var(--card); padding: 12px; font: 12.5px/1.45 var(--mono); resize: vertical; outline: none; }
+
+.pdf { background: #fff; color: #111; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,.18); padding: 18px 16px; font-size: 9.5px; aspect-ratio: 8.5 / 11; overflow: hidden; display: grid; align-content: start; gap: 4px; }
+.pdf h4 { margin: 0 0 4px; font-size: 13px; }
+.pdf table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; table-layout: fixed; font-size: 8.5px; }
+.pdf col.n { width: 5%; } .pdf col.d { width: 17%; } .pdf col.m { width: 33%; } .pdf col.w { width: 13%; } .pdf col.a { width: 16%; }
+.pdf td, .pdf th { overflow: hidden; text-overflow: ellipsis; }
+.pdf th { text-align: left; border-bottom: 1px solid #999; padding: 2px; font-size: 9px; }
+.pdf td { padding: 2px; vertical-align: top; }
+.pdf td.r, .pdf th.r { text-align: right; }
+.pdf .sub td { color: #555; font-size: 8.5px; }
+.pdf .tot td { border-top: 1px solid #999; font-weight: 700; }
+.pdf-pages { display: grid; gap: 12px; }
+.pdf .lbl { font-weight: 700; font-size: 9px; }
+.pdf .paper { box-shadow: none; font-size: 8px; padding: 10px; }
+
+.toast { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 9px 14px; border-radius: 20px; font-size: 13.5px; z-index: 40; white-space: nowrap; animation: fade .2s; }
+.confirm { position: absolute; inset: 0; background: rgba(0,0,0,.35); display: grid; place-items: center; z-index: 30; padding: 30px; }
+.confirm .box { background: var(--card); border-radius: 14px; width: 100%; max-width: 280px; text-align: center; overflow: hidden; }
+.confirm .box p { margin: 0; padding: 18px 16px; }
+.confirm .box div { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--hair); }
+.confirm .box button { border: 0; background: none; padding: 12px; color: var(--accent); }
+.confirm .box button + button { border-left: 1px solid var(--hair); color: var(--danger); font-weight: 600; }
+.inline-split { display: flex; gap: 8px; align-items: center; padding: 8px 14px 12px; }
+.inline-split input { flex: 1; min-width: 0; border: 1px solid var(--hair); border-radius: 8px; padding: 7px 9px; background: var(--bg); }
+code.csv { display: block; white-space: pre; overflow-x: auto; font: 11px/1.5 var(--mono); background: var(--card); border-radius: 12px; padding: 12px; }
+
+@media (max-width: 520px) {
+  body { padding: 0; }
+  .stage { padding: 0; display: block; height: 100%; }
+  .notes { display: none; }
+  .phone { width: 100%; height: 100%; border-radius: 0; box-shadow: none; }
+  .status { display: none; }
+  .tabbar { padding-bottom: max(10px, env(safe-area-inset-bottom, 0px)); }
+}
+</style>
+
+<div class="stage">
+  <aside class="notes">
+    <span class="tag">Interactive prototype</span>
+    <h1>HSA Receipts</h1>
+    <p>This runs the app’s real logic in the browser: the receipt reader, the eligibility rules, the split math and the reimbursement planner. The receipts are made-up examples.</p>
+    <ul>
+      <li>Tap <b>+</b> and paste any receipt text to see how it gets read and tagged.</li>
+      <li>Open the Costco receipt and try <b>Quick split</b>.</li>
+      <li>On <b>Reimburse</b>, enter an amount and tap Find best combination.</li>
+      <li>Export a claim packet, then mark it reimbursed and watch the dashboard update.</li>
+    </ul>
+    <p class="small">The camera, the iCloud folder and the share sheet only exist on the iPhone, so here they’re stand-ins. Your changes are kept in this browser only.</p>
+    <button class="reset" id="resetBtn" type="button">Reset sample data</button>
+  </aside>
+
+  <div class="phone" id="phone">
+    <div class="status" aria-hidden="true"><span>9:41</span><span class="island"></span><span class="icons">
+      <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="currentColor"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="currentColor"/><rect x="10" y="3" width="3" height="9" rx="1" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx="1" fill="currentColor"/></svg>
+      <svg width="26" height="12" viewBox="0 0 26 12"><rect x=".5" y=".5" width="22" height="11" rx="3.5" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="17" height="8" rx="2" fill="currentColor"/><rect x="24" y="4" width="1.6" height="4" rx=".8" fill="currentColor" opacity=".5"/></svg>
+    </span></div>
+    <div class="view" id="view"></div>
+    <nav class="tabbar" id="tabbar" role="tablist"></nav>
+    <div id="overlay"></div>
+  </div>
+</div>
+
+<script>
+/* ===================== Eligibility engine (ported from HSACore) ===================== */
+const RULES = [{"c": "Prescription", "e": "likely", "k": ["rx", "rx#", "prescription", "presc", "pharmacy rx", "copay", "co pay", "refill"], "p": 0}, {"c": "Medical service", "e": "likely", "k": ["office visit", "deductible", "coinsurance", "patient resp", "patient balance", "exam", "x ray", "xray", "lab", "labs", "lab work", "bloodwork", "vaccin", "immuniz", "flu shot", "physical therapy", "chiropract", "acupunct", "counseling", "psychotherapy", "therapy session", "ambulance", "urgent care", "telehealth", "dental", "dentist", "prophylaxis", "dental cleaning", "filling", "root canal", "crown", "orthodont", "invisalign", "lasik", "eye exam", "vision exam", "hearing test", "mammogra", "ultrasound", "mri", "surgery", "anesthes", "consultation", "well visit", "physical exam"], "p": 0}, {"c": "OTC medicine (CARES Act)", "e": "likely", "k": ["acetaminophen", "acetamin", "apap", "tylenol", "ibuprofen", "ibupro", "ibu", "advil", "motrin", "naproxen", "naprox", "aleve", "aspirin", "bayer", "excedrin", "pain rel", "pain reliever", "migraine", "allergy", "allerg", "allrgy", "antihistamine", "claritin", "loratadine", "lorat", "zyrtec", "cetirizine", "cetiriz", "allegra", "fexofenadine", "fexofen", "xyzal", "benadryl", "diphenhydramine", "diphen", "flonase", "nasacort", "fluticasone", "nasal spray", "nasal", "sinus", "saline nasal", "decongest", "sudafed", "pseudoephed", "phenyleph", "mucinex", "guaifenesin", "guaif", "dextrometh", "robitussin", "delsym", "cough", "throat lozenge", "lozenge", "cough drop", "halls", "chloraseptic", "nyquil", "dayquil", "theraflu", "cold and flu", "cold flu", "cold relief", "cold rlf", "cold sore", "abreva", "flu", "antacid", "tums", "rolaids", "heartburn", "acid reduc", "acid red", "pepcid", "famotidine", "omeprazole", "prilosec", "nexium", "esomeprazole", "lansoprazole", "prevacid", "zantac", "gas relief", "gas x", "simethicone", "imodium", "loperamide", "antidiarr", "anti diarr", "pepto", "bismuth", "laxative", "laxat", "miralax", "dulcolax", "senna", "stool soft", "colace", "metamucil", "hemorrhoid", "preparation h", "hydrocortisone", "hydrocort", "cortizone", "anti itch", "antiitch", "calamine", "benzocaine", "lidocaine", "neosporin", "bacitracin", "antibiotic", "antibiot", "first aid oint", "antiseptic", "antisept", "hydrogen peroxide", "hydrogen perox", "rubbing alcohol", "isopropyl", "wart", "compound w", "athlete", "antifungal", "antifung", "clotrimazole", "clotrim", "terbinafine", "lamisil", "tinactin", "monistat", "yeast infection", "lice", "nix lice", "sleep aid", "zzzquil", "unisom", "doxylamine", "motion sick", "dramamine", "meclizine", "eye drop", "eye drp", "eye drops", "visine", "systane", "refresh tears", "artificial tear", "lubricant eye", "eye wash", "ear drop", "ear wax", "debrox", "eczema", "psoriasis", "acne", "benzoyl", "salicylic", "differin", "teething", "orajel", "diaper rash", "desitin", "a d ointment", "boudreaux", "children s tylenol", "infants", "pediatric", "fever", "nicotine", "nicorette", "nicoderm", "smoking cessation", "medicine", "medication", "tablet", "caplet", "softgel", "gelcap", "liquigel", "liqui gel", "mg"], "p": 0}, {"c": "Menstrual care (CARES Act)", "e": "likely", "k": ["tampon", "tampons", "tampax", "maxi pad", "maxi pads", "pantiliner", "panty liner", "menstrual", "period underwear", "period panties", "kotex", "stayfree", "always ultra", "always infinity", "always maxi", "playtex sport", "o b tampon", "diva cup", "menstrual cup", "menstrual disc"], "p": 0}, {"c": "First aid", "e": "likely", "k": ["bandage", "bandaid", "band aid", "bndg", "adhesive pad", "gauze", "first aid", "1st aid", "medical tape", "wound", "liquid bandage", "blister", "moleskin", "ace bandage", "elastic bandage", "burn gel", "butterfly closure", "steri strip"], "p": 0}, {"c": "Medical device / supplies", "e": "likely", "k": ["thermometer", "thermom", "blood pressure", "bp monitor", "glucose", "glucometer", "test strip", "test strips", "lancet", "insulin", "syringe", "pen needle", "pulse ox", "oximeter", "nebulizer", "inhaler", "spacer chamber", "cpap", "heating pad", "cold pack", "hot pack", "ice pack", "hot cold", "brace", "knee brace", "wrist brace", "ankle brace", "back brace", "splint", "sling", "crutch", "cane", "walker", "wheelchair", "shower chair", "hearing aid", "hearing aid batt", "orthotic", "arch support", "pill organizer", "pill box", "pill crusher", "pill cutter", "pill splitter", "nasal aspirator", "humidifier wick", "tens unit", "kinesiology tape", "incontinence", "adult brief", "depend", "poise", "catheter", "ostomy", "denture", "denture adhesive", "polident", "fixodent", "reading glass", "reading glasses", "readers", "magnifier"], "p": 0}, {"c": "Vision care", "e": "likely", "k": ["contact lens", "contact lenses", "contacts", "acuvue", "dailies", "biofinity", "air optix", "oasys", "lens solution", "contact solution", "contact sol", "lens sol", "renu", "opti free", "optifree", "clear care", "boston simplus", "eyeglass", "eyeglasses", "prescription glass", "rx glasses", "prescription sunglass", "lens case", "frames"], "p": 0}, {"c": "Family planning & pregnancy", "e": "likely", "k": ["pregnancy test", "pregnan", "ovulation", "fertility", "clearblue", "first response", "condom", "condoms", "trojan", "durex", "personal lubricant", "lubricant", "k y", "plan b", "emergency contracep", "prenatal", "breast pump", "breast milk", "milk storage", "nursing pad", "breast pad", "lanolin", "nipple cream", "breast shield", "flange"], "p": 0}, {"c": "Sun protection", "e": "likely", "k": ["sunscreen", "sunblock", "spf*", "sun protect"], "p": 10}, {"c": "Health protection (PPE / testing)", "e": "likely", "k": ["hand sanitizer", "hand sanit", "sanitizing wipe", "kn95", "n95", "surgical mask", "face mask", "covid test", "antigen test", "rapid test", "binaxnow", "ihealth", "flowflex", "test kit"], "p": 0}, {"c": "Store flagged FSA/HSA", "e": "likely", "k": ["fsa", "hsa", "fsa eligible", "hsa eligible"], "p": 20}, {"c": "Dual-purpose — may need Letter of Medical Necessity", "e": "maybe", "k": ["vitamin", "vitamins", "multivit", "multi vit", "supplement", "probiotic", "fish oil", "omega", "melatonin", "protein", "collagen", "electrolyte", "pedialyte", "lactaid", "lactase", "fiber", "glucosamine", "turmeric", "magnesium", "calcium", "zinc", "elderberry", "emergen c", "airborne", "massage", "gym", "fitness", "weight loss", "weight watchers", "humidifier", "air purif", "compression", "compression sock", "insole", "insoles", "dr scholl", "earplug", "ear plug", "mask", "sanitiz", "disinfect", "aloe", "after sun", "lip balm", "chapstick", "moisturiz", "eczema lotion", "dandruff", "medicated shampoo", "sunglasses", "blue light", "night guard", "mouth guard", "electric toothbrush", "water flosser", "waterpik", "foot cream", "callus", "corn remover", "baby thermometer"], "p": 0}, {"c": "Personal care", "e": "notEligible", "k": ["toothpaste", "toothbrush", "floss", "mouthwash", "listerine", "shampoo", "conditioner", "deodorant", "antiperspirant", "body wash", "soap", "lotion", "cosmetic", "makeup", "mascara", "lipstick", "foundation", "concealer", "nail", "polish", "perfume", "cologne", "fragrance", "razor", "shave", "shaving", "hair", "hairspray", "cotton ball", "cotton swab", "q tip", "qtip", "tissue", "tissues", "kleenex", "diaper", "diapers", "baby wipe", "wipes", "feminine wash", "dry shampoo", "teeth whiten", "whitening", "beauty", "skincare", "face wash", "cleanser"], "p": 0}, {"c": "Groceries & household", "e": "notEligible", "k": ["milk", "bread", "egg", "eggs", "banana", "bananas", "apple", "apples", "chicken", "beef", "pork", "cheese", "yogurt", "butter", "soda", "cola", "coke", "pepsi", "chips", "candy", "chocolate", "snack", "snacks", "cereal", "coffee", "tea", "water", "juice", "beer", "wine", "liquor", "produce", "deli", "bakery", "grocery", "frozen", "pizza", "fruit", "vegetable", "salad", "gum", "cookies", "crackers", "ice cream", "paper towel", "toilet paper", "bath tissue", "detergent", "laundry", "trash bag", "cleaner", "bleach", "dish", "sponge", "foil", "batteries", "light bulb"], "p": 0}, {"c": "General merchandise", "e": "notEligible", "k": ["gift card", "giftcard", "greeting card", "card", "magazine", "toy", "toys", "pet", "dog", "cat", "shirt", "socks", "clothing", "apparel", "shoes", "phone", "charger", "cable", "headphone", "bag fee", "bag", "bags", "bottle deposit", "crv", "candle", "decor", "seasonal", "stationery", "pen", "pens", "tape dispenser", "wrapping", "balloon", "flowers", "plant"], "p": 0}];
+const MEDICAL_MERCHANT = ["dental", "dentist", "dds", "dmd", "orthodont", "pediatric", "pediatrics", "clinic", "hospital", "medical", "health center", "health system", "healthcare", "urgent care", "physician", "physicians", "md", "family practice", "family medicine", "internal medicine", "dermatolog", "optometr", "ophthalm", "vision center", "eye care", "eyecare", "optical", "chiropract", "physical therapy", "rehab", "labcorp", "quest diagnostic", "radiology", "imaging", "counseling", "psychiatr", "psycholog", "therapist", "hearing", "audiolog", "podiatr", "ob gyn", "obgyn", "women s health", "surgery center", "surgical", "anesthesia", "minuteclinic", "minute clinic", "lenscrafters", "warby parker", "1 800 contacts", "visionworks", "america s best"];
+const MEDICAL_DOC = ["patient", "date of service", "dos", "provider", "copay", "co pay", "insurance", "guarantor", "procedure", "cpt", "diagnosis", "visit", "statement date", "account number", "amount you owe", "patient responsibility", "adjustment", "npi"];
+const PHARMACY = ["cvs", "walgreens", "rite aid", "pharmacy", "pharmacist", "drug", "drugs", "duane reade", "health mart", "good neighbor pharmacy", "rx"];
+const PAYMENT = ["visa", "mastercard", "master card", "amex", "american express", "discover", "debit", "credit", "cash", "change", "tender", "payment", "approved", "approval", "auth", "ref", "chip", "contactless", "you saved", "savings", "saved", "reward", "rewards", "points", "balance remaining", "acct", "account", "card ending", "hsa card", "fsa card", "tip", "gratuity", "items sold", "item count", "number of items"];
+const KNOWN_MERCHANTS = [["cvs", "CVS Pharmacy"], ["minuteclinic", "CVS MinuteClinic"], ["walgreens", "Walgreens"], ["rite aid", "Rite Aid"], ["walmart", "Walmart"], ["wal mart", "Walmart"], ["target", "Target"], ["costco", "Costco"], ["sam s club", "Sam's Club"], ["kroger", "Kroger"], ["safeway", "Safeway"], ["publix", "Publix"], ["h e b", "H-E-B"], ["meijer", "Meijer"], ["amazon", "Amazon"], ["whole foods", "Whole Foods"], ["trader joe", "Trader Joe's"], ["albertsons", "Albertsons"], ["wegmans", "Wegmans"], ["duane reade", "Duane Reade"], ["1 800 contacts", "1-800 Contacts"], ["warby parker", "Warby Parker"], ["lenscrafters", "LensCrafters"], ["labcorp", "Labcorp"], ["quest diagnostics", "Quest Diagnostics"], ["bj s", "BJ's"], ["hy vee", "Hy-Vee"], ["giant", "Giant"], ["stop shop", "Stop & Shop"], ["shoprite", "ShopRite"], ["heb", "H-E-B"]];
+
+const norm = s => String(s).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+const padded = s => ' ' + norm(s) + ' ';
+const letters = s => (String(s).match(/\p{L}/gu) || []).length;
+function kw(k, p) {
+  if (k.endsWith('*')) return p.includes(' ' + k.slice(0, -1));
+  if (k.length <= 4) return p.includes(' ' + k + ' ');
+  return p.includes(' ' + k);
+}
+const ENTRIES = (() => {
+  const list = [];
+  RULES.forEach(r => r.k.forEach(k => {
+    const star = k.endsWith('*');
+    const n = norm(star ? k.slice(0, -1) : k);
+    if (n) list.push({ k: star ? n + '*' : n, r });
+  }));
+  return list.map((e, i) => ({ ...e, i })).sort((a, b) => {
+    const ra = a.k.length + a.r.p, rb = b.k.length + b.r.p;
+    return ra !== rb ? rb - ra : a.i - b.i;
+  });
+})();
+function classify(text, ctx = 'general') {
+  const p = padded(text);
+  for (const e of ENTRIES) if (kw(e.k, p)) return { e: e.r.e, reason: e.r.c, k: e.k };
+  if (ctx === 'medicalProvider') return { e: 'likely', reason: 'Charge from a medical provider', k: null };
+  return { e: 'unknown', reason: null, k: null };
+}
+function merchantKind(merchant, full) {
+  const mp = padded(merchant), tp = padded(full);
+  if (MEDICAL_MERCHANT.some(w => kw(w, mp))) return 'medicalProvider';
+  if (MEDICAL_DOC.filter(w => kw(w, tp)).length >= 3) return 'medicalProvider';
+  if (PHARMACY.some(w => kw(w, mp) || kw(w, tp))) return 'pharmacy';
+  return 'general';
+}
+
+/* ===================== Receipt parser (ported) ===================== */
+const AMOUNT_RE = /(-)?\$?\s?(\d{1,3}(?:,\d{3})+|\d{1,6})[.,](\d{2})(?!\d)\s*(-)?\s*(?:[A-Za-z]{1,2}|\*|USD)?\s*$/;
+function amountIn(line) {
+  const m = AMOUNT_RE.exec(line);
+  if (!m) return null;
+  let c = parseInt(m[2].replace(/,/g, ''), 10) * 100 + parseInt(m[3], 10);
+  if (m[1] || m[4]) c = -c;
+  return { cents: c, rest: line.slice(0, m.index) };
+}
+function lineKind(p) {
+  const has = k => kw(k, p);
+  if ((has('fsa') || has('hsa') || has('flex spend') || has('iias')) && (has('total') || has('elig') || has('amount') || has('qualified'))) return 'eligibleTotal';
+  if (has('subtotal') || has('sub total') || has('merchandise total')) return 'subtotal';
+  if (has('tax') || has('sales tax') || has('taxes') || has('hst') || has('gst')) return 'tax';
+  if (has('total') && !has('saving') && !has('savings') && !has('items') && !has('discount') && !has('you saved')) return 'total';
+  if (['balance due','amount due','amount paid','total paid','patient responsibility','patient balance','you owe','amount you owe'].some(has)) return 'total';
+  if (PAYMENT.some(has)) return 'payment';
+  return 'other';
+}
+function cleanDesc(s) {
+  return s.replace(/\b\d{6,}\b/g, '').replace(/\s{2,}/g, ' ').replace(/^[\s$\-*#:]+|[\s$\-*#:]+$/g, '');
+}
+function findMerchant(lines) {
+  const head = lines.slice(0, 10);
+  for (const l of head) { const p = padded(l); const hit = KNOWN_MERCHANTS.find(([k]) => kw(k, p)); if (hit) return hit[1]; }
+  const skip = ['receipt','welcome','thank','store','invoice','order','date','tel','phone','www','http'];
+  for (const l of head.slice(0, 6)) {
+    const n = letters(l);
+    if (n < 3 || n / Math.max(l.length, 1) <= 0.5) continue;
+    const p = padded(l);
+    if (skip.some(k => kw(k, p)) || amountIn(l)) continue;
+    const t = l.trim();
+    return t === t.toUpperCase() ? t.toLowerCase().replace(/\b\p{L}/gu, c => c.toUpperCase()) : t;
+  }
+  return null;
+}
+const MONTHS = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, sept:9, oct:10, nov:11, dec:12 };
+function findDate(lines, now) {
+  const latest = new Date(now.getTime() + 2 * 86400000);
+  const make = (y, m, d) => {
+    if (y < 100) y += 2000;
+    if (m < 1 || m > 12 || d < 1 || d > 31 || y < 2000 || y > 2100) return null;
+    const dt = new Date(y, m - 1, d, 12);
+    if (dt > latest || dt.getDate() !== d) return null;
+    return iso(dt);
+  };
+  for (const l of lines) {
+    let m;
+    if ((m = /\b(20\d{2})-(\d{1,2})-(\d{1,2})\b/.exec(l))) { const r = make(+m[1], +m[2], +m[3]); if (r) return r; }
+    if ((m = /\b(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})\b/.exec(l))) { const r = make(+m[3], +m[1], +m[2]); if (r) return r; }
+    if ((m = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(\d{1,2}),?\s+(20\d{2})\b/i.exec(l))) { const r = make(+m[3], MONTHS[m[1].toLowerCase()], +m[2]); if (r) return r; }
+  }
+  return null;
+}
+function parseReceipt(raw, now = new Date()) {
+  const lines = raw.map(l => l.trim()).filter(Boolean);
+  const res = { merchant: findMerchant(lines), date: findDate(lines, now), total: null, subtotal: null, tax: null, store: null, items: [] };
+  let pending = null, awaiting = null, totalFound = false, taxSum = 0, sawTax = false;
+  const apply = (k, c) => {
+    if (k === 'subtotal') { if (res.subtotal == null) res.subtotal = c; }
+    else if (k === 'tax') { taxSum += c; sawTax = true; }
+    else if (k === 'total') { if (res.total == null) res.total = c; totalFound = true; }
+    else if (k === 'eligibleTotal') res.store = c;
+  };
+  for (const line of lines) {
+    const kind = lineKind(padded(line));
+    const am = amountIn(line);
+    if (awaiting) { const w = awaiting; awaiting = null; if (am && letters(am.rest) < 2) { apply(w, am.cents); continue; } }
+    if (['subtotal','tax','total','eligibleTotal'].includes(kind)) { if (am) apply(kind, am.cents); else awaiting = kind; pending = null; continue; }
+    if (kind === 'payment') { pending = null; continue; }
+    if (totalFound) continue;
+    if (am) {
+      const d = cleanDesc(am.rest);
+      if (letters(d) >= 2) { res.items.push({ text: d, cents: am.cents }); pending = null; }
+      else if (pending) { res.items.push({ text: pending, cents: am.cents }); pending = null; }
+    } else if (letters(line) >= 3 && !line.includes(':')) pending = cleanDesc(line);
+  }
+  if (sawTax) res.tax = taxSum;
+  if (res.total == null) {
+    if (res.subtotal != null) res.total = res.subtotal + (res.tax || 0);
+    else if (res.items.length) res.total = res.items.reduce((a, b) => a + b.cents, 0) + (res.tax || 0);
+  }
+  return res;
+}
+
+/* ===================== Analyzer, split math, planner (ported) ===================== */
+const uid = () => Math.random().toString(36).slice(2, 10);
+function analyze(raw, now = new Date()) {
+  const p = parseReceipt(raw, now);
+  const full = raw.join('\n');
+  const merchant = p.merchant || '';
+  const r = {
+    id: uid(), merchant, kind: merchantKind(merchant, full), date: p.date || iso(now),
+    total: p.total, subtotal: p.subtotal, tax: p.tax, store: p.store,
+    items: p.items.map(i => ({ id: uid(), text: i.text, amount: i.cents, e: 'unknown', reason: null, override: false, patient: '' })),
+    e: 'unknown', why: '', manual: null, attachments: [{ type: 'paper' }], patient: '', addedBy: '', notes: '',
+    reimbursed: false, reimbursedOn: null, raw: full,
+  };
+  reclassify(r);
+  return r;
+}
+function reclassify(r) {
+  if (r.kind !== 'medicalProvider') { const k = merchantKind(r.merchant, r.raw); if (k === 'medicalProvider' || r.kind === 'general') r.kind = k; }
+  let prev = null, prevWhy = null;
+  for (const it of r.items) {
+    if (it.override) { prev = it.e; prevWhy = it.reason; continue; }
+    let c = classify(it.text, r.kind);
+    if (it.amount < 0 && !c.k && prev) c = { e: prev, reason: prevWhy ? 'Discount on: ' + prevWhy : null, k: null };
+    it.e = c.e; it.reason = c.reason; prev = c.e; prevWhy = c.reason;
+  }
+  const [e, why] = verdict(r); r.e = e; r.why = why;
+}
+function verdict(r) {
+  if (r.kind === 'medicalProvider') return ['likely', 'Looks like a bill from a medical, dental or vision provider.'];
+  if (r.store > 0) return ['likely', `The store printed an FSA/HSA-eligible total of ${money(r.store)}.`];
+  const pos = r.items.filter(i => i.amount > 0);
+  if (!pos.length) {
+    const w = classify(r.merchant + ' ' + r.raw, r.kind);
+    if (w.e === 'likely') return ['likely', w.reason ? `Matched: ${w.reason}.` : 'Likely eligible.'];
+    if (w.e === 'maybe') return ['maybe', 'Possibly eligible. May need a Letter of Medical Necessity.'];
+    return ['unknown', "Couldn't find line items. Review and set eligibility by hand, or use Quick split."];
+  }
+  const likely = pos.filter(i => i.e === 'likely'), maybe = pos.filter(i => i.e === 'maybe'), no = pos.filter(i => i.e === 'notEligible');
+  if (likely.length) {
+    const cats = [...new Set(likely.map(i => i.reason).filter(Boolean))].sort().slice(0, 3).join(', ');
+    return ['likely', `${likely.length} of ${pos.length} items look HSA-eligible${cats ? ` (${cats})` : ''}.`];
+  }
+  if (maybe.length) return ['maybe', `${maybe.length} item(s) may qualify with a Letter of Medical Necessity.`];
+  if (no.length === pos.length) return ['notEligible', 'No HSA-eligible items found.'];
+  return ['unknown', "Some items weren't recognized. Review them below."];
+}
+const sum = (a, f = x => x) => a.reduce((s, x) => s + f(x), 0);
+function computedEligible(r) {
+  if (r.kind === 'medicalProvider' && r.total != null) return Math.max(0, r.total);
+  if (r.items.length) {
+    const all = sum(r.items, i => i.amount), el = sum(r.items.filter(i => i.e === 'likely'), i => i.amount);
+    let res = el;
+    if (r.tax > 0 && all > 0 && el > 0) res += r.tax * el / all;
+    return Math.max(0, Math.round(res));
+  }
+  return r.e === 'likely' ? Math.max(0, r.total || 0) : 0;
+}
+const eligibleAmount = r => r.manual ?? r.store ?? computedEligible(r);
+function splitTotals(r) {
+  const t = { likely: 0, maybe: 0, notEligible: 0, unknown: 0 };
+  const items = r.items.filter(i => i.amount !== 0);
+  if (!items.length) { t[r.e] = r.total || 0; return t; }
+  const all = sum(items, i => i.amount);
+  for (const e of Object.keys(t)) {
+    const s = sum(items.filter(i => i.e === e), i => i.amount);
+    t[e] = Math.max(0, Math.round(r.tax > 0 && all > 0 ? s + r.tax * s / all : s));
+  }
+  return t;
+}
+const isSplit = r => { const p = r.items.filter(i => i.amount > 0); return p.some(i => i.e === 'likely') && p.some(i => i.e !== 'likely'); };
+const eligibleItems = r => r.items.filter(i => i.e === 'likely' && i.amount !== 0);
+function eligibleByPatient(r) {
+  const el = eligibleItems(r);
+  if (!el.length) return eligibleAmount(r) > 0 ? [{ who: r.patient, amt: eligibleAmount(r) }] : [];
+  const all = sum(r.items.filter(i => i.amount !== 0), i => i.amount), out = new Map();
+  for (const i of el) {
+    const who = i.patient || r.patient;
+    const a = i.amount + (r.tax > 0 && all > 0 ? r.tax * i.amount / all : 0);
+    out.set(who, (out.get(who) || 0) + a);
+  }
+  return [...out].map(([who, amt]) => ({ who, amt: Math.max(0, Math.round(amt)) }));
+}
+function quickSplit(r, cents) {
+  const preTax = r.subtotal ?? ((r.total ?? cents) - (r.tax || 0));
+  const part = Math.max(0, cents);
+  r.items = [{ id: uid(), text: 'HSA-eligible items', amount: part, e: 'likely', reason: 'Split by hand', override: true, patient: '' }];
+  if (preTax - part > 0) r.items.push({ id: uid(), text: 'Other items', amount: preTax - part, e: 'notEligible', reason: 'Split by hand', override: true, patient: '' });
+  if (r.kind === 'medicalProvider') r.kind = 'general';
+  r.e = 'likely'; r.why = `Split by hand: ${money(part)} of ${money(preTax)} before tax is eligible.`; r.manual = null; r.store = null;
+}
+function plan(cands, target, allowOver) {
+  const items = cands.filter(c => c.cents > 0);
+  if (target <= 0 || !items.length) return { ids: [], total: 0, target };
+  const all = sum(items, c => c.cents);
+  if (all <= target) return { ids: items.map(c => c.id), total: all, target };
+  const maxItem = Math.max(...items.map(c => c.cents));
+  const ceil = allowOver ? Math.min(all, target + maxItem) : target;
+  const by = new Int32Array(ceil + 1).fill(-1); by[0] = 2147483647;
+  items.forEach((it, idx) => { if (it.cents > ceil) return; for (let s = ceil; s >= it.cents; s--) if (by[s] === -1 && by[s - it.cents] !== -1) by[s] = idx; });
+  let best = 0;
+  for (let s = target; s > 0; s--) if (by[s] !== -1) { best = s; break; }
+  if (allowOver) for (let o = target + 1; o <= ceil; o++) if (by[o] !== -1) { if (o - target < target - best) best = o; break; }
+  const ids = []; let rem = best;
+  while (rem > 0) { const i = by[rem]; ids.push(items[i].id); rem -= items[i].cents; }
+  return { ids: ids.reverse(), total: best, target };
+}
+
+/* ===================== Formatting ===================== */
+function iso(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+const fmtUSD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+const money = c => fmtUSD.format((c || 0) / 100);
+const plain = c => ((c || 0) / 100).toFixed(2);
+const toCents = v => { if (v === '' || v == null) return null; const n = Math.round(parseFloat(String(v).replace(/[$,]/g, '')) * 100); return Number.isFinite(n) ? n : null; };
+const yearOf = r => +r.date.slice(0, 4);
+const fmtDate = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const E = {
+  likely: { label: 'Likely eligible', short: 'Eligible' },
+  maybe: { label: 'Maybe (needs LMN)', short: 'Maybe' },
+  notEligible: { label: 'Not eligible', short: 'Not eligible' },
+  unknown: { label: 'Needs review', short: 'Review' },
+};
+const ICON = {
+  likely: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.2l2.1 2.1 4.3-4.6" stroke="var(--card)" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  maybe: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor"/><text x="8" y="11.6" text-anchor="middle" font-size="10" font-weight="700" fill="var(--card)" font-family="sans-serif">?</text></svg>',
+  notEligible: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M5.5 5.5l5 5m0-5l-5 5" stroke="var(--card)" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  unknown: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M8 4.3v4.6" stroke="var(--card)" stroke-width="1.9" stroke-linecap="round"/><circle cx="8" cy="11.4" r="1.1" fill="var(--card)"/></svg>',
+};
+const badge = (e, long) => `<span class="badge e-${e}">${ICON[e]}${long ? E[e].label : E[e].short}</span>`;
+const SVG = {
+  plus: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M12 7v10M7 12h10" stroke="var(--card)" stroke-width="2.2" stroke-linecap="round"/></svg>',
+  chev: '<svg width="8" height="13" viewBox="0 0 8 13"><path d="M1.5 1.5l5 5-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+  check: '<svg viewBox="0 0 16 16"><path d="M3.5 8.4l3 3 6-6.6" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  split: '<svg width="12" height="12" viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.5v11" stroke="currentColor" stroke-width="1.5"/></svg>',
+  search: '<svg width="15" height="15" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 2.5h8l4.5 4.5v14.5H6z"/><path d="M14 2.5V7h4.5M9 12h6M9 15.5h6M9 19h4"/></svg>',
+  cam: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8h4l2-3h6l2 3h4v12H3z"/><circle cx="12" cy="13.5" r="3.6"/></svg>',
+  photo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="9.5" r="1.8"/><path d="M3 17l5-5 4 4 3-3 6 6"/></svg>',
+  paste: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2.5h6V4M8.5 10h7M8.5 13.5h7M8.5 17h4"/></svg>',
+  sample: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 3h14v18l-2.3-1.5L14.3 21 12 19.5 9.7 21l-2.4-1.5L5 21z"/><path d="M8.5 8h7M8.5 11.5h7M8.5 15h4"/></svg>',
+};
+const TABS = [
+  ['dashboard', 'Dashboard', '<svg viewBox="0 0 24 24"><rect x="3" y="12" width="4.5" height="9" rx="1.2" fill="currentColor"/><rect x="9.75" y="6" width="4.5" height="15" rx="1.2" fill="currentColor"/><rect x="16.5" y="3" width="4.5" height="18" rx="1.2" fill="currentColor"/></svg>'],
+  ['receipts', 'Receipts', '<svg viewBox="0 0 24 24"><path d="M5 2.5h14v19l-2.3-1.6-2.4 1.6-2.3-1.6-2.3 1.6-2.4-1.6L5 21.5z" fill="currentColor"/><path d="M8.5 8h7M8.5 11.5h7M8.5 15h4.5" stroke="var(--card)" stroke-width="1.6" stroke-linecap="round"/></svg>'],
+  ['reimburse', 'Reimburse', '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><text x="12" y="16.6" text-anchor="middle" font-size="13" font-weight="700" fill="var(--card)" font-family="sans-serif">$</text></svg>'],
+  ['settings', 'Settings', '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M10.3 2h3.4l.5 2.6 1.9.8 2.2-1.5 2.4 2.4-1.5 2.2.8 1.9 2.6.5v3.4l-2.6.5-.8 1.9 1.5 2.2-2.4 2.4-2.2-1.5-1.9.8-.5 2.6h-3.4l-.5-2.6-1.9-.8-2.2 1.5-2.4-2.4 1.5-2.2-.8-1.9L2 13.7v-3.4l2.6-.5.8-1.9-1.5-2.2 2.4-2.4 2.2 1.5 1.9-.8z"/><circle cx="12" cy="12" r="3.4" fill="var(--card)"/></svg>'],
+];
+
+/* ===================== Sample data (examples) ===================== */
+const SAMPLES = [
+  { name: 'CVS pharmacy run', raw: ['CVS/pharmacy', '123 MAIN ST, SPRINGFIELD', '11/02/2026 10:14 AM', 'ADVIL LIQ GELS 80CT        12.99 F', 'CVS SPF50 SUNSCREEN         9.49 F', 'COUPON                      1.00-', 'COCA COLA 20OZ              2.29', 'SUBTOTAL                   23.77', 'TAX                         1.43', 'TOTAL                      25.20', 'FSA ELIGIBLE TOTAL         21.48', 'VISA                       25.20', 'CHANGE                      0.00'], patient: 'Michael' },
+  { name: 'Target: allergy meds + groceries', raw: ['TARGET', 'Store T-1432 Springfield', '10/14/2026  6:42 PM', 'CLARITIN 24HR 30CT  212345678  24.99 T', 'UP&UP IBUPROFEN 100CT  4.49 T', 'BOUNTY PAPER TOWEL 6PK  12.99 T', 'BANANAS  1.29', 'SUBTOTAL  43.76', 'MA TAX 6.25% ON 42.47  2.65', 'TOTAL  46.41', 'VISA CHARGE  46.41'], patient: 'Michael', itemPatients: { 0: 'Emma' } },
+  { name: 'Dentist statement', raw: ['Bright Smiles Dental', 'Patient Statement', 'Patient: Emma', 'Date of Service 09/03/2026', 'Provider: Dr. Lee, DDS', 'Prophylaxis - child   95.00', 'Fluoride varnish   40.00', 'Bitewing x-rays   50.00', 'Amount you owe   185.00'], patient: 'Emma' },
+  { name: 'Walgreens with an unknown item', raw: ['Walgreens #04821', '06/21/2026 11:05', 'RENU MULTIPLUS 12OZ  11.99', 'BANANA BOAT SPF50 8OZ  9.99', 'NATURE MADE VITAMIN D3  12.49', 'REESES PB CUPS  2.19', 'SUBTOTAL 36.66', 'TAX 2.20', 'TOTAL 38.86'], patient: 'Michael' },
+  { name: 'Eyeglasses', raw: ['LensCrafters', '12/10/2025', 'Patient: Michael', 'Progressive lenses  245.00', 'Frames  98.00', 'Anti-reflective coating  45.00', 'Vision insurance  -100.00', 'TOTAL  288.00'], patient: 'Michael' },
+  { name: 'Costco (faded receipt)', raw: ['COSTCO WHOLESALE', '08/09/2025', '(items too faded to read)', 'TAX  7.00', 'TOTAL  107.00'], patient: 'Michael', notes: 'Allergy meds and groceries. Try Quick split with 40.00.' },
+  { name: 'Urgent care copay', raw: ['CityMD Urgent Care', '03/18/2025', 'Patient: Michael', 'Office visit copay  75.00', 'Amount paid  75.00'], patient: 'Michael', reimbursedOn: '2025-04-02' },
+  { name: 'Pediatrician copay', raw: ['Springfield Pediatrics', '05/02/2024', 'Patient: Emma', 'Sick visit copay  40.00', 'Amount paid  40.00'], patient: 'Emma' },
+  { name: 'Prescription', raw: ['CVS/pharmacy', '11/11/2024', 'RX# 4471823 AMOXICILLIN 250MG  12.50', 'TOTAL  12.50'], patient: 'Emma', reimbursedOn: '2024-12-01' },
+];
+function sampleReceipts() {
+  return SAMPLES.map((s, n) => {
+    const r = analyze(s.raw, new Date(2026, 10, 18));
+    r.patient = s.patient || ''; r.addedBy = n % 3 === 1 ? 'Alex' : 'Michael'; r.notes = s.notes || '';
+    if (s.itemPatients) for (const [i, who] of Object.entries(s.itemPatients)) if (r.items[i]) r.items[i].patient = who;
+    if (s.reimbursedOn) { r.reimbursed = true; r.reimbursedOn = s.reimbursedOn; }
+    return r;
+  });
+}
+
+/* ===================== State ===================== */
+const KEY = 'hsa-receipts-prototype-v1';
+const S = { tab: 'dashboard', receipts: [], userName: 'Michael', holder: 'Michael', household: 'Michael, Alex, Emma',
+  filter: 'all', search: '', target: '', yearFilter: 'all', allowOver: false, selected: new Set(), plan: null };
+function load() {
+  try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (d && Array.isArray(d.receipts)) { Object.assign(S, d, { selected: new Set(), plan: null }); return; } } catch (_) {}
+  S.receipts = sampleReceipts();
+}
+function persist() {
+  try { const { selected, plan: _p, ...rest } = S; localStorage.setItem(KEY, JSON.stringify(rest)); } catch (_) {}
+}
+const family = () => S.household.split(',').map(s => s.trim()).filter(Boolean);
+const byDate = a => [...a].sort((x, y) => y.date.localeCompare(x.date));
+const reimbursable = () => S.receipts.filter(r => !r.reimbursed && eligibleAmount(r) > 0);
+function yearSummaries() {
+  const m = new Map();
+  for (const r of S.receipts) { const a = eligibleAmount(r); if (a <= 0) continue; const y = yearOf(r);
+    const s = m.get(y) || { year: y, eligible: 0, reimbursed: 0, count: 0 }; s.eligible += a; if (r.reimbursed) s.reimbursed += a; s.count++; m.set(y, s); }
+  return [...m.values()].sort((a, b) => b.year - a.year);
+}
+
+/* ===================== Rendering ===================== */
+const $ = s => document.querySelector(s);
+const view = $('#view'), overlay = $('#overlay');
+function render() {
+  $('#tabbar').innerHTML = TABS.map(([id, label, ic]) => `<button class="tab" role="tab" aria-selected="${S.tab === id}" data-tab="${id}">${ic}<span>${label}</span></button>`).join('');
+  const keep = view.querySelector('.scroll')?.scrollTop || 0;
+  view.innerHTML = ({ dashboard: Dashboard, receipts: Receipts, reimburse: Reimburse, settings: Settings })[S.tab]();
+  const sc = view.querySelector('.scroll'); if (sc && S._sameTab) sc.scrollTop = keep;
+  S._sameTab = true;
+  if (S.tab === 'dashboard') wireChart();
+  persist();
+}
+const addBtn = () => `<button class="iconbtn" data-act="add" aria-label="Add receipt">${SVG.plus}</button>`;
+function rrow(r, { selectable = false } = {}) {
+  const amt = eligibleAmount(r);
+  return `<button class="rrow" data-${selectable ? 'pick' : 'open'}="${r.id}">
+    ${selectable ? `<span class="check ${S.selected.has(r.id) ? 'on' : ''}">${S.selected.has(r.id) ? SVG.check : ''}</span>` : ''}
+    <span class="main"><span class="m">${esc(r.merchant || 'Receipt')}</span>
+      <span class="sub">${fmtDate(r.date)}${r.patient ? ' · ' + esc(r.patient) : ''}</span>
+      <span class="badges">${badge(r.e)}${isSplit(r) ? `<span class="pill">${SVG.split} Split</span>` : ''}</span></span>
+    <span class="amt"><b>${money(amt)}</b>${r.total != null && r.total !== amt ? `<small>of ${money(r.total)}</small>` : ''}${r.reimbursed ? '<small>✓ Reimbursed</small>' : ''}</span>
+    ${selectable ? '' : `<span class="chev">${SVG.chev}</span>`}</button>`;
+}
+
+function Dashboard() {
+  const re = reimbursable(), bal = sum(re, eligibleAmount), ys = yearSummaries();
+  const oldest = re.map(r => r.date).sort()[0];
+  const review = S.receipts.filter(r => r.e === 'unknown' || r.e === 'maybe').length;
+  const reimb = sum(ys, y => y.reimbursed);
+  return `<div class="navbar"><span></span>${addBtn()}</div>
+  <div class="scroll"><div class="bigtitle">HSA Dashboard</div><div class="stack">
+    <button class="hero" data-goto="reimburse"><span class="label">Available to reimburse</span><span class="value">${money(bal)}</span>
+      <span class="cap">${re.length ? `${re.length} receipt${re.length === 1 ? '' : 's'}${oldest ? ' · oldest ' + new Date(oldest + 'T12:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : ''} · Tap to plan a reimbursement` : 'Scan receipts to start building your balance'}</span></button>
+    <div class="row2"><div class="card tile"><div class="label">Reimbursed</div><div class="value">${money(reimb)}</div><div class="cap">All time</div></div>
+      <button class="card tile" data-goto="receipts" data-filter="review" style="border:0;text-align:left"><div class="label">Needs review</div><div class="value">${review}</div><div class="cap">${review === 1 ? 'receipt' : 'receipts'}</div></button></div>
+    ${ys.length ? `<div class="card"><div class="h">Eligible expenses by year</div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>Available</span><span><i style="background:var(--bar-reimb)"></i>Reimbursed</span></div>
+      <div class="chart" id="chart">${chartSVG(ys)}</div></div>
+    <div class="card"><table class="years"><thead><tr><th>Year</th><th>Eligible</th><th>Reimbursed</th><th>Available</th></tr></thead><tbody>
+      ${ys.map(y => `<tr><td>${y.year}</td><td>${money(y.eligible)}</td><td class="dim">${money(y.reimbursed)}</td><td class="strong">${money(y.eligible - y.reimbursed)}</td></tr>`).join('')}</tbody></table></div>` : ''}
+    <div><div class="h">Recent</div><div class="list">${byDate(S.receipts).slice(0, 5).map(r => rrow(r)).join('') || '<div class="empty">No receipts yet. Tap + to add one.</div>'}</div></div>
+  </div></div>`;
+}
+function niceMax(v) { if (v <= 0) return 100; const p = Math.pow(10, Math.floor(Math.log10(v))); for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p; return 10 * p; }
+function chartSVG(ys) {
+  const data = [...ys].sort((a, b) => a.year - b.year);
+  const W = 330, H = 170, L = 44, R = 6, T = 8, B = 22, max = niceMax(Math.max(...data.map(d => d.eligible)) / 100) * 100;
+  const y = v => T + (H - T - B) * (1 - v / max), bw = Math.min(46, (W - L - R) / data.length * 0.5);
+  const step = (W - L - R) / data.length;
+  let g = '';
+  for (let i = 0; i <= 4; i++) { const v = max * i / 4; g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--hair)" stroke-width="1"/><text x="${L - 6}" y="${y(v) + 3}" text-anchor="end">${fmtUSD.format(v / 100).replace('.00', '')}</text>`; }
+  data.forEach((d, i) => {
+    const cx = L + step * i + step / 2, avail = d.eligible - d.reimbursed;
+    const yA = y(avail), yTop = y(d.eligible), base = y(0);
+    if (avail > 0) g += `<path d="M${cx - bw / 2},${base} V${yA + 3} q0,-3 3,-3 H${cx + bw / 2 - 3} q3,0 3,3 V${base} Z" fill="var(--accent)"/>`;
+    if (d.reimbursed > 0) g += `<rect x="${cx - bw / 2}" y="${yTop}" width="${bw}" height="${Math.max(0, yA - yTop - (avail > 0 ? 2 : 0))}" rx="3" fill="var(--bar-reimb)"/>`;
+    g += `<text x="${cx}" y="${H - 6}" text-anchor="middle">${d.year}</text>`;
+    g += `<rect class="hit" data-i="${i}" x="${cx - step / 2}" y="${T}" width="${step}" height="${H - T - B}" fill="transparent"/>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Eligible expenses by year">${g}</svg>`;
+}
+function wireChart() {
+  const c = $('#chart'); if (!c) return;
+  const data = [...yearSummaries()].sort((a, b) => a.year - b.year);
+  c.querySelectorAll('.hit').forEach(h => {
+    const show = () => { const d = data[+h.dataset.i], bb = h.getBoundingClientRect(), cb = c.getBoundingClientRect();
+      let tip = c.querySelector('.tip'); if (!tip) { tip = document.createElement('div'); tip.className = 'tip'; c.appendChild(tip); }
+      tip.innerHTML = `<b>${d.year}</b> · Available ${money(d.eligible - d.reimbursed)} · Reimbursed ${money(d.reimbursed)}`;
+      tip.style.left = Math.min(Math.max(bb.left - cb.left + bb.width / 2, 110), cb.width - 110) + 'px'; tip.style.top = '20px'; };
+    h.addEventListener('mouseenter', show); h.addEventListener('click', show);
+    h.addEventListener('mouseleave', () => c.querySelector('.tip')?.remove());
+  });
+}
+
+function Receipts() {
+  const q = S.search.toLowerCase();
+  const list = byDate(S.receipts).filter(r => {
+    const ok = S.filter === 'all' || (S.filter === 'available' && !r.reimbursed && eligibleAmount(r) > 0) || (S.filter === 'reimbursed' && r.reimbursed) || (S.filter === 'review' && (r.e === 'unknown' || r.e === 'maybe'));
+    return ok && (!q || [r.merchant, r.patient, r.notes, ...r.items.map(i => i.text)].some(t => (t || '').toLowerCase().includes(q)));
+  });
+  const years = [...new Set(list.map(yearOf))].sort((a, b) => b - a);
+  return `<div class="navbar"><span></span>${addBtn()}</div><div class="scroll"><div class="bigtitle">Receipts</div><div class="stack">
+    <label class="search">${SVG.search}<input id="search" type="search" placeholder="Merchant, item, family member" value="${esc(S.search)}"></label>
+    <div class="seg">${[['all', 'All'], ['available', 'Available'], ['reimbursed', 'Reimbursed'], ['review', 'Review']].map(([k, l]) => `<button data-filter="${k}" aria-pressed="${S.filter === k}">${l}</button>`).join('')}</div>
+    ${years.map(y => { const rs = list.filter(r => yearOf(r) === y); return `<div><div class="section-h"><span>${y}</span><span class="num">${money(sum(rs, eligibleAmount))}</span></div><div class="list">${rs.map(r => rrow(r)).join('')}</div></div>`; }).join('')
+      || `<div class="empty">${SVG.doc}<b>${q ? 'No matches' : 'No receipts'}</b><span>${q ? 'Try a different search.' : 'Tap + to add one.'}</span></div>`}
+  </div></div>`;
+}
+
+function Reimburse() {
+  const cands = reimbursable().filter(r => S.yearFilter === 'all' || yearOf(r) === +S.yearFilter).sort((a, b) => a.date.localeCompare(b.date));
+  const years = [...new Set(reimbursable().map(yearOf))].sort((a, b) => b - a);
+  const avail = sum(cands, eligibleAmount), selList = cands.filter(r => S.selected.has(r.id)), selTotal = sum(selList, eligibleAmount);
+  const p = S.plan, t = toCents(S.target);
+  return `<div class="navbar"><span></span><span></span></div><div class="scroll"><div class="bigtitle">Reimburse</div><div class="stack">
+    <div><div class="form">
+      <div class="f"><b>Available</b><span class="v num" style="color:var(--fg);font-weight:600">${money(avail)}</span></div>
+      <div class="f"><label for="target">Amount to reimburse</label><input id="target" type="text" inputmode="decimal" placeholder="$0.00" value="${esc(S.target)}" style="font-size:18px"></div>
+      <div class="f"><label for="yearFilter">Use receipts from</label><select id="yearFilter"><option value="all">All years</option>${years.map(y => `<option value="${y}" ${String(S.yearFilter) === String(y) ? 'selected' : ''}>${y}</option>`).join('')}</select></div>
+      <div class="f"><label for="allowOver">Allow going slightly over</label><span class="toggle"><input id="allowOver" type="checkbox" ${S.allowOver ? 'checked' : ''}><span></span></span></div>
+      <div class="f"><button class="btn-link" data-act="plan">✦ Find best combination</button></div>
+    </div><div class="section-f">Finds the unreimbursed receipts whose eligible amounts add up closest to your target. You can adjust the picks below.</div></div>
+    ${p ? `<div class="card result"><div class="hd"><span class="${p.total === p.target ? 'e-likely' : ''}">${p.total === p.target ? '✓ Exact match' : '◎ Closest match'}</span></div>
+      <div>${p.ids.length} receipt${p.ids.length === 1 ? '' : 's'} totaling <b class="num">${money(p.total)}</b></div>
+      ${p.total !== p.target ? `<div class="muted">${p.total < p.target ? money(p.target - p.total) + ' under' : money(p.total - p.target) + ' over'} your ${money(p.target)} target</div>` : ''}
+      ${selTotal !== p.total ? `<div class="muted small">Your current selection: ${money(selTotal)}</div>` : ''}</div>` : ''}
+    <div><div class="section-h"><span>Receipts</span><button class="btn-link" style="border:0;background:none;color:var(--accent);font-size:12.5px" data-act="selall">${selList.length === cands.length && cands.length ? 'Clear' : 'Select all'}</button></div>
+      <div class="list">${cands.map(r => rrow(r, { selectable: true })).join('') || '<div class="empty">No unreimbursed eligible receipts.</div>'}</div></div>
+  </div></div>
+  ${selList.length ? `<div class="footer-bar"><button class="primary" data-act="export-sel">Export ${selList.length} receipt${selList.length === 1 ? '' : 's'} · ${money(selTotal)}</button></div>` : ''}`;
+}
+
+function Settings() {
+  return `<div class="navbar"></div><div class="scroll"><div class="bigtitle">Settings</div><div class="stack">
+    <div><div class="section-h">Storage</div><div class="form">
+      <div class="f"><span class="k">Saving to</span><span class="v">HSA Receipts (iCloud Drive)</span></div>
+      <div class="f"><button class="btn-link" data-act="toast" data-msg="On iPhone this opens the Files folder picker">Choose a different folder</button></div>
+    </div><div class="section-f">Receipts are saved as normal files (images/PDFs plus a small .json each) and an “HSA Ledger.csv” spreadsheet, so you can browse them in the Files app even without this app.</div></div>
+    <div><div class="section-h">Household</div><div class="form">
+      <div class="f"><label for="userName">Your name</label><input id="userName" type="text" value="${esc(S.userName)}"></div>
+      <div class="f"><label for="holder">HSA account holder</label><input id="holder" type="text" value="${esc(S.holder)}"></div>
+      <div class="f"><label for="household">Family</label><input id="household" type="text" value="${esc(S.household)}"></div>
+    </div><div class="section-f">Family members appear in the “For” pickers on receipts and line items.</div></div>
+    <div><div class="section-h">Export</div><div class="form"><div class="f"><button class="btn-link" data-act="ledger">Share full ledger (CSV)</button></div></div></div>
+    <div><div class="section-h">Sharing with your spouse</div><div class="card small" style="line-height:1.5;display:grid;gap:8px">
+      <div>1. In Files › iCloud Drive, create a folder named “HSA Receipts”.</div>
+      <div>2. Long-press it › Share › Collaborate. Choose “Only invited people” and “Can make changes”, then invite your spouse.</div>
+      <div>3. Your spouse accepts and the folder appears in their iCloud Drive.</div>
+      <div>4. On both phones: Settings › Choose iCloud Drive folder › “HSA Receipts”.</div></div></div>
+    <div><div class="section-h">About eligibility</div><div class="card small muted" style="line-height:1.5">Eligibility is an estimate from keyword rules based on IRS Publication 502 and the CARES Act (OTC medicine and menstrual products qualify without a prescription). “Maybe” items usually need a Letter of Medical Necessity. Always keep receipts and check with your HSA provider.
+      <div style="margin-top:8px"><a href="https://www.irs.gov/publications/p502" target="_blank" rel="noopener" style="color:var(--accent)">IRS Publication 502</a></div></div></div>
+  </div></div>`;
+}
+
+/* ===================== Sheets ===================== */
+let sheet = null; // { kind, draft, isNew, ... }
+function openSheet(s) { sheet = s; renderSheet(true); }
+function closeSheet() { sheet = null; overlay.innerHTML = ''; }
+function renderSheet(fresh) {
+  if (!sheet) return;
+  const keep = overlay.querySelector('.sheet .scroll')?.scrollTop || 0;
+  const body = ({ add: AddSheet, paste: PasteSheet, editor: EditorSheet, export: ExportSheet, ledger: LedgerSheet })[sheet.kind]();
+  overlay.innerHTML = `<div class="sheet-wrap" ${fresh ? '' : 'style="animation:none"'}><div class="sheet" ${fresh ? '' : 'style="animation:none"'}>${body}</div></div>`;
+  const sc = overlay.querySelector('.sheet .scroll'); if (sc && !fresh) sc.scrollTop = keep;
+}
+function AddSheet() {
+  return `<div class="bar"><button class="l" data-act="close">Cancel</button><span class="t">Add receipt</span><span></span></div>
+  <div class="scroll"><div class="stack">
+    <div class="form">
+      <button class="option" data-act="toast" data-msg="On iPhone this opens the document camera (auto-crop, multi-page)"><span class="ic">${SVG.cam}</span><span class="t"><b>Scan receipt</b><small>iPhone only. Uses the document camera.</small></span></button>
+      <label class="option" for="photoIn" style="cursor:pointer"><span class="ic">${SVG.photo}</span><span class="t"><b>Choose photo</b><small>Attaches your image. Paste its text next so it can be read.</small></span></label>
+      <button class="option" data-act="paste"><span class="ic">${SVG.paste}</span><span class="t"><b>Paste receipt text</b><small>Runs the real receipt reader and eligibility rules</small></span></button>
+    </div>
+    <input id="photoIn" type="file" accept="image/*" hidden>
+    <div><div class="section-h">Try a sample receipt</div><div class="form">
+      ${SAMPLES.map((s, i) => `<button class="option" data-sample="${i}"><span class="ic">${SVG.sample}</span><span class="t"><b>${esc(s.name)}</b><small>${esc(s.raw[0])}</small></span></button>`).join('')}
+    </div></div>
+  </div></div>`;
+}
+function PasteSheet() {
+  return `<div class="bar"><button class="l" data-act="back-add">Back</button><span class="t">Paste receipt text</span><button class="r" data-act="read">Read</button></div>
+  <div class="scroll"><div class="stack">
+    ${sheet.image ? `<div class="thumbs"><span class="thumb"><img src="${sheet.image}" alt="Your photo"></span></div>` : ''}
+    <textarea class="paste" id="pasteText" spellcheck="false">${esc(sheet.text ?? 'WALGREENS #1180\n02/14/2026 4:12 PM\nZYRTEC 24HR 45CT        29.99\nTAMPAX PEARL 36CT        9.49\nGREETING CARD            4.99\nM&M PEANUT SHARE         2.49\nSUBTOTAL                46.96\nTAX                      2.82\nTOTAL                   49.78\nVISA                    49.78')}</textarea>
+    <div class="section-f">Each line as printed. Prices at the end of a line become items, and SUBTOTAL, TAX and TOTAL are recognized. Try your own receipt.</div>
+  </div></div>`;
+}
+function EditorSheet() {
+  const r = sheet.draft, fam = family(), t = splitTotals(r), tt = sum(Object.values(t)), shares = eligibleByPatient(r);
+  const opts = (sel) => `<option value="">—</option>${fam.map(n => `<option ${sel === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}${sel && !fam.includes(sel) ? `<option selected>${esc(sel)}</option>` : ''}`;
+  const hasReview = r.items.some(i => i.e === 'unknown' || i.e === 'maybe');
+  return `<div class="bar"><button class="l" data-act="close">Cancel</button><span class="t">${sheet.isNew ? 'New receipt' : esc(r.merchant || 'Receipt')}</span><button class="r" data-act="save">Save</button></div>
+  <div class="scroll"><div class="stack">
+    <div class="card verdict"><div style="display:flex;justify-content:space-between;align-items:center">${badge(r.e, true)}
+      <select id="e-verdict" aria-label="Change eligibility" style="border:0;background:none;color:var(--accent);font-size:12.5px">${Object.keys(E).map(k => `<option value="${k}" ${r.e === k ? 'selected' : ''}>${k === r.e ? 'Change' : E[k].label}</option>`).join('')}</select></div>
+      <div class="amount">${money(eligibleAmount(r))}</div><div class="of">HSA-eligible amount${r.total != null ? ' of ' + money(r.total) : ''}</div>
+      ${r.why ? `<div class="why">${esc(r.why)}</div>` : ''}</div>
+
+    <div><div class="section-h">Receipt</div><div class="thumbs">
+      ${r.attachments.map((a, i) => a.type === 'image' ? `<button class="thumb" data-view="${i}"><img src="${a.src}" alt="Receipt photo"></button>` : `<button class="thumb" data-view="${i}"><div class="mini-paper">${esc(r.raw)}</div></button>`).join('')}
+    </div></div>
+
+    <div><div class="section-h">Details</div><div class="form">
+      <div class="f"><input class="left" id="e-merchant" type="text" placeholder="Merchant or provider" value="${esc(r.merchant)}"></div>
+      <div class="f"><label for="e-date">Date</label><input id="e-date" type="date" value="${r.date}"></div>
+      <div class="f"><label for="e-total">Total</label><input id="e-total" type="text" inputmode="decimal" value="${r.total != null ? plain(r.total) : ''}" placeholder="0.00"></div>
+      <div class="f"><label for="e-patient">For</label><select id="e-patient">${opts(r.patient)}</select></div>
+      <div class="f"><label for="e-kind">Type</label><select id="e-kind"><option value="general" ${r.kind === 'general' ? 'selected' : ''}>Store</option><option value="pharmacy" ${r.kind === 'pharmacy' ? 'selected' : ''}>Pharmacy</option><option value="medicalProvider" ${r.kind === 'medicalProvider' ? 'selected' : ''}>Doctor / dentist / vision</option></select></div>
+      ${r.addedBy ? `<div class="f"><span class="k">Added by</span><span class="v">${esc(r.addedBy)}</span></div>` : ''}
+    </div></div>
+
+    <div><div class="section-h">Split</div><div class="form">
+      ${tt > 0 ? `<div class="f" style="display:grid;gap:10px"><div class="splitbar">${Object.keys(E).filter(k => t[k] > 0).map(k => `<i style="flex:${t[k]};background:${k === 'notEligible' ? 'var(--bar-reimb)' : `var(--${k === 'likely' ? 'good' : k === 'maybe' ? 'maybe' : 'review'})`}"></i>`).join('')}</div></div>
+        ${Object.keys(E).filter(k => t[k] > 0).map(k => `<div class="f">${badge(k)}<span class="v num">${money(t[k])}</span></div>`).join('')}
+        ${shares.length > 1 || shares.some(s => s.who) ? shares.map(s => `<div class="f small"><span class="k">Eligible for ${esc(s.who || '—')}</span><span class="v num">${money(s.amt)}</span></div>`).join('') : ''}` : ''}
+      <div class="f"><button class="btn-link" data-act="qs-open">${SVG.split} ${r.items.length ? 'Replace items with a quick split…' : 'Quick split…'}</button></div>
+      ${sheet.qs ? `<div class="inline-split"><input id="qsAmt" type="text" inputmode="decimal" placeholder="Eligible amount before tax" value="${esc(sheet.qsVal || '')}"><button class="secondary" data-act="qs-do">Split</button></div><div class="section-f" style="padding:0 14px 10px">Receipt total ${r.total != null ? money(r.total) : '—'}. The rest becomes “Not eligible”.</div>` : ''}
+      ${hasReview ? `<div class="f"><label for="bulk">Mark several at once</label><select id="bulk"><option value="">Choose…</option><option value="unknown>likely">Review items → Eligible</option><option value="unknown>notEligible">Review items → Not eligible</option><option value="maybe>likely">Maybe items → Eligible (have LMN)</option><option value="maybe>notEligible">Maybe items → Not eligible</option></select></div>` : ''}
+    </div><div class="section-f">Mixed receipts only count the eligible part, and sales tax is shared out proportionally. Quick split is for receipts whose items couldn’t be read.</div></div>
+
+    <div><div class="section-h"><span>Items (${r.items.length})</span><button style="border:0;background:none;color:var(--accent);font-size:12.5px" data-act="recheck">Re-check</button></div><div class="form">
+      ${r.items.map((it, i) => `<div class="item"><div class="top"><input data-it="${i}" data-f="text" type="text" value="${esc(it.text)}" placeholder="Item" aria-label="Item"><input class="money" data-it="${i}" data-f="amount" type="text" inputmode="decimal" value="${plain(it.amount)}" aria-label="Amount"></div>
+        <div class="bot"><select class="e-${it.e}" data-it="${i}" data-f="e" aria-label="Eligibility">${Object.keys(E).map(k => `<option value="${k}" ${it.e === k ? 'selected' : ''}>${E[k].short}</option>`).join('')}</select>
+          <span class="why">${esc(it.reason || '')}</span>
+          ${fam.length ? `<select data-it="${i}" data-f="patient" aria-label="Family member" style="font-weight:500">${`<option value="">${r.patient ? esc(r.patient) : 'For…'}</option>` + fam.map(n => `<option ${it.patient === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>` : ''}
+          <button class="del" data-del="${i}" aria-label="Delete item">Delete</button></div></div>`).join('')}
+      <div class="f"><button class="btn-link" data-act="additem">+ Add line item</button></div>
+    </div><div class="section-f">Change a tag to override it. Only “Eligible” items count toward the HSA amount.</div></div>
+
+    <div><div class="section-h">Eligible amount</div><div class="form">
+      <div class="f"><label for="e-manualOn">Set eligible amount manually</label><span class="toggle"><input id="e-manualOn" type="checkbox" ${r.manual != null ? 'checked' : ''}><span></span></span></div>
+      ${r.manual != null ? `<div class="f"><label for="e-manual">Eligible amount</label><input id="e-manual" type="text" inputmode="decimal" value="${plain(r.manual)}"></div>` : ''}
+      ${r.store != null ? `<div class="f"><span class="k">Store-printed FSA/HSA total</span><span class="v">${money(r.store)}</span></div>` : ''}
+      <div class="f"><span class="k">Calculated from items</span><span class="v">${money(computedEligible(r))}</span></div>
+    </div></div>
+
+    <div><div class="section-h">Reimbursement</div><div class="form">
+      <div class="f"><label for="e-reimb">Reimbursed from HSA</label><span class="toggle"><input id="e-reimb" type="checkbox" ${r.reimbursed ? 'checked' : ''}><span></span></span></div>
+      ${r.reimbursed ? `<div class="f"><label for="e-reimbOn">Reimbursed on</label><input id="e-reimbOn" type="date" value="${r.reimbursedOn || iso(new Date())}"></div>` : ''}
+    </div></div>
+
+    <div><div class="section-h">Notes</div><div class="form"><div class="f"><input class="left" id="e-notes" type="text" placeholder="e.g. Emma's ear infection" value="${esc(r.notes)}"></div></div></div>
+    <details class="card small"><summary style="cursor:pointer">Recognized text</summary><pre style="white-space:pre-wrap;font:11.5px/1.45 var(--mono);margin:8px 0 0">${esc(r.raw)}</pre></details>
+    ${sheet.isNew ? '' : `<div class="form"><div class="f"><button class="btn-link" data-act="export-one">Export for HSA upload</button></div><div class="f"><button class="btn-link danger" data-act="ask-delete">Delete receipt</button></div></div>`}
+  </div></div>
+  ${sheet.viewing != null ? `<div class="sheet-wrap" style="align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.6)" data-act="unview"><div style="max-height:90%;overflow:auto;width:100%">${r.attachments[sheet.viewing].type === 'image' ? `<img src="${r.attachments[sheet.viewing].src}" alt="Receipt photo" style="width:100%;border-radius:8px">` : `<div class="paper">${esc(r.raw)}</div>`}</div></div>` : ''}
+  ${sheet.confirmDelete ? `<div class="confirm"><div class="box"><p>Delete this receipt and its files?</p><div><button data-act="no-delete">Cancel</button><button data-act="do-delete">Delete</button></div></div></div>` : ''}`;
+}
+function ExportSheet() {
+  const rs = sheet.ids.map(id => S.receipts.find(r => r.id === id)).filter(Boolean).sort((a, b) => a.date.localeCompare(b.date));
+  const total = sum(rs, eligibleAmount);
+  return `<div class="bar"><span></span><span class="t">Export for HSA</span><button class="r" data-act="close">Done</button></div>
+  <div class="scroll"><div class="stack">
+    <div class="form"><div class="f"><span class="k">Receipts</span><span class="v">${rs.length}</span></div><div class="f"><b>Total eligible</b><span class="v num" style="color:var(--fg);font-weight:600">${money(total)}</span></div>
+      <div class="f"><label for="holderX">Account holder</label><input id="holderX" type="text" value="${esc(S.holder)}"></div></div>
+    <div><div class="section-h">Format</div><div class="seg"><button data-fmt="combined" aria-pressed="${sheet.fmt === 'combined'}">One combined PDF</button><button data-fmt="individual" aria-pressed="${sheet.fmt === 'individual'}">One PDF per receipt</button></div>
+      <div class="section-f">Each PDF starts with a summary page, followed by the itemized receipt images. Most HSA providers accept PDF uploads for “reimburse myself” claims.</div></div>
+    ${sheet.built ? `<button class="primary" data-act="toast" data-msg="On iPhone this opens the share sheet: Save to Files, Mail, or your HSA provider’s app">Share, save to Files, or upload</button>
+      <div class="section-h">Preview</div><div class="pdf-pages">${sheet.fmt === 'combined' ? pdfPages(rs, total) : rs.map(r => pdfPages([r], eligibleAmount(r))).join('')}</div>`
+      : `<button class="primary" data-act="build">Create PDF${sheet.fmt === 'individual' && rs.length > 1 ? 's' : ''}</button>`}
+    ${rs.some(r => !r.reimbursed) ? `<div><div class="form"><div class="f"><label for="reimbOn">Reimbursed on</label><input id="reimbOn" type="date" value="${sheet.on}"></div>
+      <div class="f"><button class="btn-link" data-act="mark" ${sheet.marked ? 'disabled' : ''}>${sheet.marked ? '✓ Marked as reimbursed' : 'Mark these as reimbursed'}</button></div></div>
+      <div class="section-f">Do this after your HSA provider accepts the claim so your available balance stays accurate.</div></div>` : (sheet.marked ? '<div class="card e-likely">✓ Marked as reimbursed. Your dashboard is updated.</div>' : '')}
+  </div></div>`;
+}
+function pdfPages(rs, total) {
+  const dates = rs.map(r => r.date).sort();
+  const rows = rs.map((r, i) => {
+    let h = `<tr><td>${i + 1}</td><td>${new Date(r.date + 'T12:00').toLocaleDateString('en-US')}</td><td>${esc(r.merchant || 'Receipt')}</td><td>${esc(r.patient)}</td><td class="r">${r.total != null ? '$' + plain(r.total) : ''}</td><td class="r">$${plain(eligibleAmount(r))}</td></tr>`;
+    if (isSplit(r)) {
+      h += eligibleItems(r).map(it => `<tr class="sub"><td></td><td></td><td colspan="3">• ${esc(it.text)}${it.patient ? ` (${esc(it.patient)})` : ''}</td><td class="r">$${plain(it.amount)}</td></tr>`).join('');
+      const nc = sum(Object.values(splitTotals(r))) - eligibleAmount(r);
+      if (nc > 0) h += `<tr class="sub"><td></td><td></td><td colspan="4">Not claimed (ineligible items incl. their tax): $${plain(nc)}</td></tr>`;
+    }
+    return h;
+  }).join('');
+  const summary = `<div class="pdf"><h4>HSA Reimbursement Documentation</h4>
+    <div>Account holder: ${esc(S.holder || '—')}</div><div>Prepared: ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+    <div>Dates of service/purchase: ${fmtDate(dates[0])} – ${fmtDate(dates[dates.length - 1])}</div>
+    <div style="font-weight:700;margin:4px 0 8px">Receipts: ${rs.length} &nbsp; Total requested: $${plain(total)}</div>
+    <table><colgroup><col class="n"><col class="d"><col class="m"><col class="w"><col class="a"><col class="a"></colgroup><thead><tr><th>#</th><th>Date</th><th>Merchant</th><th>For</th><th class="r">Total</th><th class="r">Eligible</th></tr></thead><tbody>${rows}
+    <tr class="tot"><td colspan="5">Total</td><td class="r">$${plain(total)}</td></tr></tbody></table>
+    <div style="color:#555;margin-top:8px">Itemized receipts follow. Eligible amounts include prorated sales tax on qualifying items.</div></div>`;
+  const pages = rs.map((r, i) => r.attachments.map(a => `<div class="pdf"><div class="lbl">#${i + 1} ${esc(r.merchant)} ${fmtDate(r.date)} eligible $${plain(eligibleAmount(r))}</div>${a.type === 'image' ? `<img src="${a.src}" alt="" style="max-height:92%;object-fit:contain;margin:auto">` : `<div class="paper">${esc(r.raw)}</div>`}</div>`).join('')).join('');
+  return summary + pages;
+}
+function LedgerSheet() {
+  const head = ['Date', 'Merchant', 'For', 'Total', 'HSA Eligible Amount', 'Eligibility', 'Reimbursed', 'Reimbursed On', 'Added By', 'Notes', 'Eligible Items'];
+  const q = v => /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+  const csv = [head.join(',')].concat([...S.receipts].sort((a, b) => a.date.localeCompare(b.date)).map(r => [r.date, r.merchant, r.patient, r.total != null ? plain(r.total) : '', plain(eligibleAmount(r)), E[r.e].label, r.reimbursed ? 'Yes' : 'No', r.reimbursedOn || '', r.addedBy, r.notes, isSplit(r) ? eligibleItems(r).map(i => `${i.text} ${plain(i.amount)}`).join('; ') : ''].map(v => q(String(v ?? ''))).join(','))).join('\n');
+  sheet.csv = csv;
+  return `<div class="bar"><span></span><span class="t">HSA Ledger.csv</span><button class="r" data-act="close">Done</button></div>
+  <div class="scroll"><div class="stack"><button class="primary" data-act="copycsv">Copy CSV</button><code class="csv" id="csvText">${esc(csv)}</code>
+  <div class="section-f">On iPhone this file is kept up to date in your iCloud folder and opens in Numbers or Excel.</div></div></div>`;
+}
+
+/* ===================== Events ===================== */
+let toastTimer;
+function toast(msg) { overlay.querySelector('.toast')?.remove(); const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; $('#phone').appendChild(t); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.remove(), 2600); }
+const clone = r => JSON.parse(JSON.stringify(r));
+function openEditor(r, isNew) { openSheet({ kind: 'editor', draft: clone(r), isNew }); }
+function newDraft(raw, image) {
+  const r = analyze(raw);
+  r.addedBy = S.userName;
+  if (image) r.attachments = [{ type: 'image', src: image }];
+  return r;
+}
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-tab],[data-act],[data-open],[data-pick],[data-goto],[data-filter],[data-sample],[data-fmt],[data-del],[data-view]');
+  if (!t) return;
+  if (t.dataset.tab) { S.tab = t.dataset.tab; S._sameTab = false; render(); return; }
+  if (t.dataset.goto) { S.tab = t.dataset.goto; if (t.dataset.filter) S.filter = t.dataset.filter; S._sameTab = false; render(); return; }
+  if (t.dataset.filter && S.tab === 'receipts') { S.filter = t.dataset.filter; render(); return; }
+  if (t.dataset.open) { openEditor(S.receipts.find(r => r.id === t.dataset.open), false); return; }
+  if (t.dataset.pick) { const id = t.dataset.pick; S.selected.has(id) ? S.selected.delete(id) : S.selected.add(id); render(); return; }
+  if (t.dataset.sample != null) { const s = SAMPLES[+t.dataset.sample]; const r = newDraft(s.raw); r.patient = s.patient || ''; r.notes = s.notes || ''; openEditor(r, true); return; }
+  if (t.dataset.fmt) { sheet.fmt = t.dataset.fmt; sheet.built = false; renderSheet(); return; }
+  if (t.dataset.del != null) { sheet.draft.items.splice(+t.dataset.del, 1); reclassify(sheet.draft); renderSheet(); return; }
+  if (t.dataset.view != null) { sheet.viewing = +t.dataset.view; renderSheet(); return; }
+  const r = sheet?.draft;
+  switch (t.dataset.act) {
+    case 'add': openSheet({ kind: 'add' }); break;
+    case 'close': closeSheet(); break;
+    case 'toast': toast(t.dataset.msg); break;
+    case 'paste': openSheet({ kind: 'paste' }); break;
+    case 'back-add': openSheet({ kind: 'add' }); break;
+    case 'read': { const txt = $('#pasteText').value; const lines = txt.split('\n'); if (!txt.trim()) { toast('Paste the receipt text first'); break; } openEditor(newDraft(lines, sheet.image), true); break; }
+    case 'save': {
+      const i = S.receipts.findIndex(x => x.id === r.id);
+      if (i >= 0) S.receipts[i] = r; else S.receipts.push(r);
+      const wasNew = sheet.isNew; closeSheet(); render(); toast(wasNew ? 'Saved to HSA Receipts' : 'Saved'); break;
+    }
+    case 'recheck': reclassify(r); renderSheet(); break;
+    case 'additem': r.items.push({ id: uid(), text: '', amount: 0, e: 'likely', reason: null, override: true, patient: '' }); renderSheet(); break;
+    case 'qs-open': sheet.qs = !sheet.qs; renderSheet(); setTimeout(() => $('#qsAmt')?.focus(), 0); break;
+    case 'qs-do': { const c = toCents($('#qsAmt').value); if (!(c > 0)) { toast('Enter the eligible amount, e.g. 40.00'); break; } quickSplit(r, c); sheet.qs = false; renderSheet(); break; }
+    case 'unview': sheet.viewing = null; renderSheet(); break;
+    case 'ask-delete': sheet.confirmDelete = true; renderSheet(); break;
+    case 'no-delete': sheet.confirmDelete = false; renderSheet(); break;
+    case 'do-delete': S.receipts = S.receipts.filter(x => x.id !== r.id); S.selected.delete(r.id); closeSheet(); render(); toast('Receipt deleted'); break;
+    case 'export-one': { const saved = S.receipts.find(x => x.id === r.id); if (saved) Object.assign(saved, r); openSheet({ kind: 'export', ids: [r.id], fmt: 'combined', on: iso(new Date()) }); render(); break; }
+    case 'export-sel': openSheet({ kind: 'export', ids: [...S.selected], fmt: 'combined', on: iso(new Date()), fromPlanner: true }); break;
+    case 'build': sheet.built = true; renderSheet(); break;
+    case 'mark': {
+      const on = $('#reimbOn')?.value || iso(new Date());
+      sheet.ids.forEach(id => { const x = S.receipts.find(y => y.id === id); if (x && !x.reimbursed) { x.reimbursed = true; x.reimbursedOn = on; } });
+      sheet.marked = true; if (sheet.fromPlanner) { S.selected.clear(); S.plan = null; }
+      render(); renderSheet(); toast('Marked as reimbursed'); break;
+    }
+    case 'plan': {
+      const target = toCents(S.target); if (!(target > 0)) { toast('Enter an amount to reimburse, e.g. 250.00'); break; }
+      const cands = reimbursable().filter(x => S.yearFilter === 'all' || yearOf(x) === +S.yearFilter).sort((a, b) => a.date.localeCompare(b.date));
+      S.plan = plan(cands.map(x => ({ id: x.id, cents: eligibleAmount(x) })), target, S.allowOver);
+      S.selected = new Set(S.plan.ids); render(); break;
+    }
+    case 'selall': {
+      const cands = reimbursable().filter(x => S.yearFilter === 'all' || yearOf(x) === +S.yearFilter);
+      S.selected = S.selected.size === cands.length ? new Set() : new Set(cands.map(x => x.id)); render(); break;
+    }
+    case 'ledger': openSheet({ kind: 'ledger' }); break;
+    case 'copycsv': {
+      const done = () => toast('Copied');
+      try { navigator.clipboard.writeText(sheet.csv).then(done, () => { selectCSV(); toast('Selected. Press Ctrl+C or ⌘C to copy'); }); } catch (_) { selectCSV(); }
+      break;
+    }
+  }
+});
+function selectCSV() { const el = $('#csvText'); const rg = document.createRange(); rg.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(rg); }
+
+document.addEventListener('change', e => {
+  const t = e.target, id = t.id;
+  if (['userName', 'holder', 'household'].includes(id)) { S[id] = t.value; persist(); return; }
+  if (id === 'holderX') { S.holder = t.value; persist(); return; }
+  if (id === 'yearFilter') { S.yearFilter = t.value; S.selected.clear(); S.plan = null; render(); return; }
+  if (id === 'allowOver') { S.allowOver = t.checked; render(); return; }
+  if (id === 'reimbOn') { sheet.on = t.value; return; }
+  if (id === 'photoIn' && t.files[0]) {
+    const fr = new FileReader(); fr.onload = () => openSheet({ kind: 'paste', image: fr.result, text: '' }); fr.readAsDataURL(t.files[0]); return;
+  }
+  if (!sheet || sheet.kind !== 'editor') return;
+  const r = sheet.draft;
+  if (t.dataset.it != null) {
+    const it = r.items[+t.dataset.it], f = t.dataset.f;
+    if (f === 'text') { it.text = t.value; if (!it.override) { const c = classify(it.text, r.kind); it.e = c.e; it.reason = c.reason; } }
+    if (f === 'amount') it.amount = toCents(t.value) ?? 0;
+    if (f === 'e') { it.e = t.value; it.override = true; it.reason = it.reason || 'Set by hand'; }
+    if (f === 'patient') it.patient = t.value;
+    const [ve, vw] = verdict(r); if (r.kind !== 'medicalProvider' || f === 'e') { r.e = ve; r.why = vw; }
+    renderSheet(); return;
+  }
+  switch (id) {
+    case 'e-verdict': r.e = t.value; break;
+    case 'e-merchant': r.merchant = t.value; break;
+    case 'e-date': if (t.value) r.date = t.value; break;
+    case 'e-total': r.total = toCents(t.value); break;
+    case 'e-patient': r.patient = t.value; break;
+    case 'e-kind': r.kind = t.value; { const [ve, vw] = verdict(r); r.e = ve; r.why = vw; } reclassifyItemsOnly(r); break;
+    case 'e-manualOn': r.manual = t.checked ? eligibleAmount(r) : null; break;
+    case 'e-manual': r.manual = toCents(t.value); break;
+    case 'e-reimb': r.reimbursed = t.checked; r.reimbursedOn = t.checked ? (r.reimbursedOn || iso(new Date())) : null; break;
+    case 'e-reimbOn': r.reimbursedOn = t.value; break;
+    case 'e-notes': r.notes = t.value; break;
+    case 'bulk': { if (!t.value) return; const [from, to] = t.value.split('>'); r.items.forEach(i => { if (i.e === from) { i.e = to; i.override = true; } }); const [ve, vw] = verdict(r); r.e = ve; r.why = vw; break; }
+    default: return;
+  }
+  renderSheet();
+});
+function reclassifyItemsOnly(r) { for (const it of r.items) if (!it.override) { const c = classify(it.text, r.kind); it.e = c.e; it.reason = c.reason; } const [ve, vw] = verdict(r); r.e = ve; r.why = vw; }
+document.addEventListener('input', e => {
+  if (e.target.id === 'search') { S.search = e.target.value; const pos = e.target.selectionStart; render(); const s = $('#search'); s.focus(); s.setSelectionRange(pos, pos); }
+  if (e.target.id === 'target') { S.target = e.target.value; }
+  if (e.target.id === 'qsAmt') { sheet.qsVal = e.target.value; }
+  if (e.target.id === 'pasteText') { sheet.text = e.target.value; }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.id === 'target') { e.target.blur(); document.querySelector('[data-act="plan"]')?.click(); }
+  if (e.key === 'Escape' && sheet) closeSheet();
+});
+$('#resetBtn').addEventListener('click', () => { try { localStorage.removeItem(KEY); } catch (_) {} S.receipts = sampleReceipts(); S.selected.clear(); S.plan = null; S.target = ''; closeSheet(); S._sameTab = false; render(); toast('Sample data restored'); });
+
+load();
+render();
+</script>
