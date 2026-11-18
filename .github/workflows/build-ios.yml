@@ -8,19 +8,20 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test-core:
-    runs-on: macos-15
+  build-ipa:
+    # Intel macOS runners: a separate (often shorter) queue than Apple-silicon ones.
+    runs-on: macos-15-intel
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: Unit tests (receipt parser, eligibility rules, reimbursement planner)
         working-directory: HSACore
         run: swift test
-
-  build-ipa:
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v4
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate Xcode project
